@@ -32,8 +32,14 @@ async function initDb() {
     const isLocal = /@(localhost|127\.0\.0\.1)/.test(DATABASE_URL);
     const pool = new Pool({
       connectionString: DATABASE_URL,
-      ssl: isLocal ? false : { rejectUnauthorized: false }
+      ssl: isLocal ? false : { rejectUnauthorized: false },
+      max: 5,
+      connectionTimeoutMillis: 8000,   // fail fast if a connection can't be acquired
+      idleTimeoutMillis: 30000,
+      query_timeout: 9000,             // abort a query that runs too long
+      statement_timeout: 9000
     });
+    pool.on("error", err => console.error("pg pool error:", err.message));
     await pool.query("CREATE TABLE IF NOT EXISTS kv (k text PRIMARY KEY, v text)");
     db = {
       async get(k) {
@@ -223,9 +229,14 @@ app.get("/", async (req, res) => {
 // Lightweight credential check for the app's login form.
 app.get("/api/ping", auth, (req, res) => res.json({ ok: true }));
 
-// Read shared state (for polling / initial sync)
+// Read shared state (for login, polling, initial sync)
 app.get("/api/state", auth, async (req, res) => {
-  res.json(await appSnapshot());
+  try {
+    res.json(await appSnapshot());
+  } catch (e) {
+    console.error("read error:", e.message);
+    res.status(500).json({ ok: false, error: "read failed" });
+  }
 });
 
 // Write shared state (batched key ops)
@@ -236,30 +247,40 @@ app.post("/api/state", auth, async (req, res) => {
     await db.setMany(clean.map(o => ({ k: o.k, v: o.v })));
     res.json({ ok: true, written: clean.length });
   } catch (e) {
-    console.error("write error", e.message);
+    console.error("write error:", e.message);
     res.status(500).json({ ok: false, error: "write failed" });
   }
 });
 
 // Get (or create) a client link for a project
 app.get("/api/clientlink", auth, async (req, res) => {
-  const project = (req.query.project || "").toString();
-  if (!project) return res.status(400).json({ ok: false, error: "missing project" });
-  const projects = await getProjects();
-  if (!projects.find(p => p.name === project)) return res.status(404).json({ ok: false, error: "unknown project" });
-  const token = await clientTokenFor(project);
-  res.json({ ok: true, url: baseUrl(req) + "/c/" + token, token });
+  try {
+    const project = (req.query.project || "").toString();
+    if (!project) return res.status(400).json({ ok: false, error: "missing project" });
+    const projects = await getProjects();
+    if (!projects.find(p => p.name === project)) return res.status(404).json({ ok: false, error: "unknown project" });
+    const token = await clientTokenFor(project);
+    res.json({ ok: true, url: baseUrl(req) + "/c/" + token, token });
+  } catch (e) {
+    console.error("clientlink error:", e.message);
+    res.status(500).json({ ok: false, error: "server error" });
+  }
 });
 
 // Client link (read-only, one sanitized project)
 app.get("/c/:token", async (req, res) => {
-  const project = await db.get("sys.cp::" + req.params.token);
-  if (!project) return res.status(404).send("This client link is not valid.");
-  const baked = await buildBaked(project);
-  if (!baked) return res.status(404).send("This project is no longer available.");
-  res.set("Cache-Control", "no-store");
-  const html = inject(INDEX_HTML, "window.__BAKED__=" + safeJson(baked) + ";");
-  res.type("html").send(html);
+  try {
+    const project = await db.get("sys.cp::" + req.params.token);
+    if (!project) return res.status(404).send("This client link is not valid.");
+    const baked = await buildBaked(project);
+    if (!baked) return res.status(404).send("This project is no longer available.");
+    res.set("Cache-Control", "no-store");
+    const html = inject(INDEX_HTML, "window.__BAKED__=" + safeJson(baked) + ";");
+    res.type("html").send(html);
+  } catch (e) {
+    console.error("client page error:", e.message);
+    res.status(500).send("Something went wrong loading this link. Please try again shortly.");
+  }
 });
 
 function baseUrl(req) {

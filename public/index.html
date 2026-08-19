@@ -857,11 +857,10 @@ function titlesMatch(a,b){
   const na=normalizeTitle(a), nb=normalizeTitle(b);
   if(!na||!nb) return false;
   if(na===nb) return true;
-  if(na.length>6 && (nb.indexOf(na)>=0 || na.indexOf(nb)>=0)) return true;
-  const ta=new Set(na.split(" ")), tb=nb.split(" ");
-  let hit=0; tb.forEach(t=>{if(t.length>2&&ta.has(t))hit++;});
-  const denom=Math.max(ta.size, tb.length);
-  return denom>0 && hit/denom >= 0.6;
+  // only merge when one title clearly contains the other and the shared part is substantial;
+  // never merge on a few shared common words (that hid planned requests inside unrelated threads)
+  const shorter=na.length<=nb.length?na:nb, longer=na.length<=nb.length?nb:na;
+  return shorter.length>=12 && longer.indexOf(shorter)>=0;
 }
 /* multi-keyword ("Hilton, Hampton") OR matching */
 function kwList(matchStr){ return (matchStr||"").split(",").map(s=>s.trim().toLowerCase()).filter(Boolean); }
@@ -1593,16 +1592,25 @@ function submitLogin(){
 }
 async function internalBoot(fromSaved){
   try{
-    const r=await fetch("/api/state",{headers:{Authorization:authHeader}});
+    const ctrl=new AbortController();
+    const t=setTimeout(()=>ctrl.abort(), 15000);
+    let r;
+    try{ r=await fetch("/api/state",{headers:{Authorization:authHeader},signal:ctrl.signal}); }
+    finally{ clearTimeout(t); }
     if(r.status===401||r.status===403){ authHeader=""; try{sessionStorage.removeItem("wrt.auth");}catch(e){}
       showLogin(fromSaved?"":"That username or password wasn\u2019t right."); return; }
+    if(r.status>=500){ showLogin("The server had trouble (the database may be waking up). Wait a few seconds and try Sign in again."); return; }
     if(!r.ok) throw new Error("HTTP "+r.status);
     const snap=await r.json();
     store.hydrate(snap);
     hideLogin();
     const sb=$("saveNowBtn"); if(sb){ sb.hidden=false; }
     loadCfg(); renderSelector(); checkPersistence(); saveIndicator("ok"); startSync(); loadProject();
-  }catch(e){ showLogin("Couldn\u2019t reach the server. Check your connection and try Sign in again."); }
+  }catch(e){
+    const aborted=e&&e.name==="AbortError";
+    showLogin(aborted?"The server didn\u2019t respond in time. It may be waking up. Try Sign in again."
+                     :"Couldn\u2019t reach the server. Check your connection and try Sign in again.");
+  }
 }
 
 if(!isClient()){
