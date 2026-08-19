@@ -321,6 +321,7 @@
   </header>
 
   <div id="noSaveWarn" class="nosave internalOnly" hidden></div>
+  <div id="saveWarn" class="nosave internalOnly" hidden></div>
 
   <div class="bar">
     <select id="projSelect" class="internalOnly" aria-label="Choose project"></select>
@@ -505,10 +506,10 @@ const store = (() => {
     const keys = Object.keys(ops);
     if (!keys.length || flushing) { if (keys.length) { Object.assign(pending, ops); schedule(); } return; }
     flushing = true;
-    fetch("/api/state", { method: "POST", headers: { "Content-Type": "application/json" },
+    fetch("/api/state", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ops: keys.map(k => ({ k, v: ops[k] })) }) })
-      .then(r => { if (!r.ok) throw new Error("http " + r.status); })
-      .catch(() => { Object.assign(pending, ops); schedule(); })   // re-queue on failure
+      .then(r => { if (!r.ok) throw new Error("http " + r.status); if (typeof onSaveStatus === "function") onSaveStatus(true); })
+      .catch(() => { Object.assign(pending, ops); if (typeof onSaveStatus === "function") onSaveStatus(false); schedule(); })   // re-queue on failure
       .finally(() => { flushing = false; if (Object.keys(pending).length) schedule(); });
   }
   function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return (k in mem) ? mem[k] : null; } }
@@ -1450,7 +1451,7 @@ async function copyClientLink(){
   const proj=projects[current]; if(!proj){ alert("Save the project first, then copy its client link."); return; }
   const btn=$("clientLinkBtn"), old=btn.textContent; btn.textContent="Getting link\u2026"; btn.disabled=true;
   try{
-    const r=await fetch("/api/clientlink?project="+encodeURIComponent(proj.name));
+    const r=await fetch("/api/clientlink?project="+encodeURIComponent(proj.name),{credentials:"same-origin"});
     if(!r.ok) throw new Error("http "+r.status);
     const j=await r.json();
     let copied=false; try{ await navigator.clipboard.writeText(j.url); copied=true; }catch(e){}
@@ -1459,21 +1460,32 @@ async function copyClientLink(){
   finally{ btn.textContent=old; btn.disabled=false; }
 }
 
+let _saveFailed=false;
+function onSaveStatus(ok){
+  const el=$("saveWarn"); if(!el) return;
+  if(ok){ if(_saveFailed){ _saveFailed=false; el.hidden=true; } }
+  else if(!_saveFailed){
+    _saveFailed=true;
+    el.innerHTML='<b>Some changes aren\u2019t saving.</b> The app can\u2019t reach the server right now, so recent edits are only on this screen. It keeps retrying; if this stays up, reload the page and sign in again.';
+    el.hidden=false;
+  }
+}
+
 let _lastSnap=null;
 function startSync(){
   if(!store.remote) return;
-  fetch("/api/state").then(r=>r.ok?r.json():null).then(s=>{ if(s)_lastSnap=JSON.stringify(s); }).catch(()=>{});
+  fetch("/api/state",{credentials:"same-origin"}).then(r=>r.ok?r.json():null).then(s=>{ if(s)_lastSnap=JSON.stringify(s); }).catch(()=>{});
   setInterval(async ()=>{
     if(document.hidden || store.hasPending() || !$("managePanel").hidden) return;
     const ae=document.activeElement;
     if(ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) return;   // don't yank the page while someone edits
     try{
-      const r=await fetch("/api/state"); if(!r.ok) return;
+      const r=await fetch("/api/state",{credentials:"same-origin"}); if(!r.ok) return;
       const snap=await r.json(), j=JSON.stringify(snap);
       if(j===_lastSnap) return;
       const projBefore=store.get("wrt.projects.v2");
       _lastSnap=j; store.hydrate(snap);
-      if(store.get("wrt.projects.v2")!==projBefore){ renderSelector(); loadProject(); }
+      if(store.get("wrt.projects.v2")!==projBefore){ loadCfg(); renderSelector(); loadProject(); }
       else if(lastData){ render(); }
     }catch(e){}
   }, 12000);

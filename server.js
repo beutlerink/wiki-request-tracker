@@ -160,11 +160,38 @@ function safeJson(obj) {
   return JSON.stringify(obj).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
 }
 
-/* ---------- auth ---------- */
+/* ---------- auth ----------
+ * The page loads behind Basic Auth. On success we hand out a session cookie so
+ * that the app's background save requests (fetch) authenticate via the cookie,
+ * which browsers always send, instead of relying on Basic Auth being re-attached
+ * to every fetch (which some browsers do not do). */
+function sessionToken() {
+  return crypto.createHmac("sha256", INTERNAL_PASS + "::" + INTERNAL_USER).update("session-v1").digest("hex");
+}
+function parseCookies(header) {
+  const out = {};
+  (header || "").split(";").forEach(part => {
+    const i = part.indexOf("=");
+    if (i > -1) out[part.slice(0, i).trim()] = decodeURIComponent(part.slice(i + 1).trim());
+  });
+  return out;
+}
+function safeEq(a, b) {
+  const ba = Buffer.from(String(a)), bb = Buffer.from(String(b));
+  return ba.length === bb.length && crypto.timingSafeEqual(ba, bb);
+}
+function setSessionCookie(req, res) {
+  const https = (req.headers["x-forwarded-proto"] || req.protocol || "").split(",")[0].trim() === "https";
+  const parts = ["sess=" + sessionToken(), "HttpOnly", "SameSite=Lax", "Path=/", "Max-Age=2592000"];
+  if (https) parts.push("Secure");
+  res.append("Set-Cookie", parts.join("; "));
+}
 function auth(req, res, next) {
   if (!INTERNAL_USER || !INTERNAL_PASS) {
     return res.status(503).send("Server not configured. Set INTERNAL_USER and INTERNAL_PASS environment variables in Render, then redeploy.");
   }
+  const cookies = parseCookies(req.headers.cookie);
+  if (cookies.sess && safeEq(cookies.sess, sessionToken())) return next();
   const h = req.headers.authorization || "";
   const m = h.match(/^Basic (.+)$/);
   if (m) {
@@ -185,6 +212,7 @@ app.get("/healthz", (req, res) => res.json({ ok: true }));
 
 // Internal app (full access)
 app.get("/", auth, async (req, res) => {
+  setSessionCookie(req, res);
   const state = await appSnapshot();
   const cfg = { mode: "internal", origin: baseUrl(req) };
   const html = inject(INDEX_HTML,
