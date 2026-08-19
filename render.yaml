@@ -1,0 +1,28 @@
+# Render Blueprint: creates the database + web service and wires them together.
+# In Render: New > Blueprint > connect this repo. You'll be prompted for the two
+# INTERNAL_* secrets below. Everything else is automatic.
+
+databases:
+  - name: tracker-db
+    plan: basic-256mb        # durable, ~$6/mo. Use "free" to trial (data expires after 30 days).
+    databaseName: tracker
+    region: oregon
+
+services:
+  - type: web
+    name: request-tracker
+    runtime: node
+    plan: starter            # always-on, $7/mo. Use "free" to save it (sleeps after 15 min idle, ~1 min to wake).
+    region: oregon
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: tracker-db
+          property: connectionString
+      - key: INTERNAL_USER
+        sync: false          # Render will prompt you for this (the team login name)
+      - key: INTERNAL_PASS
+        sync: false          # Render will prompt you for this (the team password)
