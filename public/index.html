@@ -98,6 +98,21 @@
   .savepill.ok{background:#eaf3ef;color:#0a5b4a}
   .savepill.pending{background:#fff4e5;color:#7a4b12}
   .savepill.fail{background:#fdecea;color:#a3271a}
+  .login-overlay{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;
+    background:var(--bg,#FFF9F2);padding:20px}
+  .login-card{width:100%;max-width:340px;background:var(--surface,#fff);border:1px solid var(--line,#e7ded2);
+    border-radius:14px;padding:26px 24px;box-shadow:0 10px 40px rgba(0,0,0,.08)}
+  .login-brand{font-family:var(--serif,Georgia,serif);font-size:20px;font-weight:700;color:var(--ink,#2b2b2b)}
+  .login-sub{font-family:var(--label,system-ui);font-size:13.5px;color:var(--muted,#8a8175);margin:6px 0 18px}
+  .login-field{display:flex;flex-direction:column;gap:5px;font-family:var(--label,system-ui);font-size:11px;
+    letter-spacing:.05em;text-transform:uppercase;color:var(--muted,#8a8175);margin-bottom:14px}
+  .login-field input{font:inherit;font-size:15px;text-transform:none;letter-spacing:0;color:var(--ink,#2b2b2b);
+    padding:10px 12px;border:1px solid var(--line-strong,#d8cdbd);border-radius:9px;background:#fff}
+  .login-field input:focus-visible{outline:2px solid var(--accent,#EA503B);outline-offset:1px}
+  .login-err{font-family:var(--label,system-ui);font-size:13px;color:#a3271a;min-height:18px;margin-bottom:4px}
+  #loginBtn{width:100%;font:inherit;font-weight:600;font-size:15px;color:#fff;background:var(--accent,#EA503B);
+    border:none;border-radius:9px;padding:11px;cursor:pointer}
+  #loginBtn:hover{filter:brightness(.96)}
   .manage input:focus-visible,.manage textarea:focus-visible{outline:2px solid var(--accent);
     outline-offset:1px;border-color:var(--accent)}
   .mactions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:4px}
@@ -312,6 +327,16 @@
 </style>
 </head>
 <body>
+<div id="loginOverlay" class="login-overlay" hidden>
+  <div class="login-card">
+    <div class="login-brand">Request Tracker</div>
+    <p class="login-sub">Sign in with your team login.</p>
+    <label class="login-field">Username<input id="loginUser" type="text" autocomplete="username" autocapitalize="off" spellcheck="false"></label>
+    <label class="login-field">Password<input id="loginPass" type="password" autocomplete="current-password"></label>
+    <div id="loginErr" class="login-err"></div>
+    <button id="loginBtn" type="button">Sign in</button>
+  </div>
+</div>
 <div class="wrap">
 
   <header class="mast">
@@ -333,6 +358,7 @@
     <button class="ghost internalOnly" id="manageBtn" type="button">Manage projects</button>
     <button class="ghost internalOnly" id="previewBtn" type="button">Preview client view</button>
     <button id="refreshBtn" type="button">Refresh</button>
+    <button class="internalOnly" id="saveNowBtn" type="button" hidden>Save</button>
     <span class="savepill internalOnly" id="saveState" hidden></span>
     <span class="synced" id="synced"></span>
   </div>
@@ -487,6 +513,8 @@ const BUCKETS=[
 ];
 
 /* safe local storage */
+/* app-controlled credentials for the hosted internal API (set at login) */
+let authHeader = "";
 /* Storage has three modes:
    - remote:      hosted internal app; shared state lives on the server (write-through).
    - client:      hosted read-only client link (window.__BAKED__); in-memory only.
@@ -510,19 +538,22 @@ const store = (() => {
     timer = null;
     const ops = pending; pending = {};
     const keys = Object.keys(ops);
-    if (!keys.length || flushing) { if (keys.length) { Object.assign(pending, ops); schedule(); } return; }
+    if (!keys.length || flushing) { if (keys.length) { Object.assign(pending, ops); schedule(); } return Promise.resolve(); }
     flushing = true;
-    fetch("/api/state", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ops: keys.map(k => ({ k, v: ops[k] })) }) })
-      .then(r => { if (!r.ok) throw new Error("http " + r.status); if (typeof onSaveStatus === "function") onSaveStatus(true); })
-      .catch(() => { Object.assign(pending, ops); if (typeof onSaveStatus === "function") onSaveStatus(false); schedule(); })   // re-queue on failure
-      .finally(() => { flushing = false; if (Object.keys(pending).length) schedule(); });  }
+    return fetch("/api/state", { method: "POST", credentials: "same-origin",
+        headers: { "Content-Type": "application/json", "Authorization": authHeader },
+        body: JSON.stringify({ ops: keys.map(k => ({ k, v: ops[k] })) }) })
+      .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); if (typeof onSaveStatus === "function") onSaveStatus(true); return true; })
+      .catch(err => { Object.assign(pending, ops); if (typeof onSaveStatus === "function") onSaveStatus(false, err); schedule(); return false; })
+      .finally(() => { flushing = false; if (Object.keys(pending).length) schedule(); });
+  }
   function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return (k in mem) ? mem[k] : null; } }
 
   return {
     persistent: remote || clientBaked || ls,
     remote,
     hasPending: () => remote && (timer !== null || flushing || Object.keys(pending).length > 0),
+    flushNow() { if (!remote) return Promise.resolve(true); if (timer) { clearTimeout(timer); timer = null; } return flush(); },
     // apply a fresh server snapshot (from polling) into the local cache
     hydrate(snapshot) {
       Object.keys(mem).forEach(k => { if (k.indexOf("wrt.") === 0 && !LOCAL_ONLY.has(k)) delete mem[k]; });
@@ -1456,7 +1487,7 @@ async function copyClientLink(){
   const proj=projects[current]; if(!proj){ alert("Save the project first, then copy its client link."); return; }
   const btn=$("clientLinkBtn"), old=btn.textContent; btn.textContent="Getting link\u2026"; btn.disabled=true;
   try{
-    const r=await fetch("/api/clientlink?project="+encodeURIComponent(proj.name),{credentials:"same-origin"});
+    const r=await fetch("/api/clientlink?project="+encodeURIComponent(proj.name),{credentials:"same-origin",headers:{Authorization:authHeader}});
     if(!r.ok) throw new Error("http "+r.status);
     const j=await r.json();
     let copied=false; try{ await navigator.clipboard.writeText(j.url); copied=true; }catch(e){}
@@ -1473,13 +1504,17 @@ function saveIndicator(state){
   else { el.className="savepill internalOnly ok"; el.textContent="Saved \u2713"; }
 }
 let _saveFailed=false;
-function onSaveStatus(ok){
+function onSaveStatus(ok, err){
   saveIndicator(ok?"ok":"fail");
   const el=$("saveWarn"); if(!el) return;
   if(ok){ if(_saveFailed){ _saveFailed=false; el.hidden=true; } }
-  else if(!_saveFailed){
+  else {
     _saveFailed=true;
-    el.innerHTML='<b>Some changes aren\u2019t saving.</b> The app can\u2019t reach the server right now, so recent edits are only on this screen. It keeps retrying; if this stays up, reload the page and sign in again.';
+    const msg=(err&&err.message)||"";
+    let why="The app can\u2019t reach the server right now.";
+    if(/401|403/.test(msg)) why="You\u2019re signed out. Click Save and sign in again.";
+    else if(/5\d\d/.test(msg)) why="The server had an error saving (the database may be waking up). Try Save again in a moment.";
+    el.innerHTML='<b>Not saved.</b> '+why+' Your recent edits are only on this screen until this clears.';
     el.hidden=false;
   }
 }
@@ -1488,13 +1523,13 @@ let _lastSnap=null;
 function startSync(){
   if(!store.remote) return;
   saveIndicator("ok");
-  fetch("/api/state",{credentials:"same-origin"}).then(r=>r.ok?r.json():null).then(s=>{ if(s)_lastSnap=JSON.stringify(s); }).catch(()=>{});
+  fetch("/api/state",{credentials:"same-origin",headers:{Authorization:authHeader}}).then(r=>r.ok?r.json():null).then(s=>{ if(s)_lastSnap=JSON.stringify(s); }).catch(()=>{});
   setInterval(async ()=>{
     if(document.hidden || store.hasPending() || !$("managePanel").hidden) return;
     const ae=document.activeElement;
     if(ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) return;   // don't yank the page while someone edits
     try{
-      const r=await fetch("/api/state",{credentials:"same-origin"}); if(!r.ok) return;
+      const r=await fetch("/api/state",{credentials:"same-origin",headers:{Authorization:authHeader}}); if(!r.ok) return;
       const snap=await r.json(), j=JSON.stringify(snap);
       if(j===_lastSnap) return;
       const projBefore=store.get("wrt.projects.v2");
@@ -1541,7 +1576,54 @@ function checkPersistence(){
   el.hidden=false;
 }
 
-loadCfg(); if(isClient())document.body.classList.add("client"); if(!isClient()){renderSelector(); checkPersistence(); startSync();} loadProject();
+function showLogin(msg){
+  const o=$("loginOverlay"); if(!o) return;
+  o.hidden=false;
+  $("loginErr").textContent=msg||"";
+  const u=$("loginUser"); if(u) setTimeout(()=>u.focus(),0);
+}
+function hideLogin(){ const o=$("loginOverlay"); if(o) o.hidden=true; }
+function submitLogin(){
+  const u=($("loginUser").value||"").trim(), p=$("loginPass").value||"";
+  if(!u||!p){ $("loginErr").textContent="Enter your username and password."; return; }
+  try{ authHeader="Basic "+btoa(u+":"+p); }catch(e){ $("loginErr").textContent="Those characters aren\u2019t supported in the login."; return; }
+  try{ sessionStorage.setItem("wrt.auth",authHeader); }catch(e){}
+  $("loginErr").textContent="Signing in\u2026";
+  internalBoot(false);
+}
+async function internalBoot(fromSaved){
+  try{
+    const r=await fetch("/api/state",{headers:{Authorization:authHeader}});
+    if(r.status===401||r.status===403){ authHeader=""; try{sessionStorage.removeItem("wrt.auth");}catch(e){}
+      showLogin(fromSaved?"":"That username or password wasn\u2019t right."); return; }
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    const snap=await r.json();
+    store.hydrate(snap);
+    hideLogin();
+    const sb=$("saveNowBtn"); if(sb){ sb.hidden=false; }
+    loadCfg(); renderSelector(); checkPersistence(); saveIndicator("ok"); startSync(); loadProject();
+  }catch(e){ showLogin("Couldn\u2019t reach the server. Check your connection and try Sign in again."); }
+}
+
+if(!isClient()){
+  const lb=$("loginBtn"); if(lb) lb.addEventListener("click",submitLogin);
+  ["loginUser","loginPass"].forEach(id=>{ const el=$(id); if(el) el.addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); submitLogin(); } }); });
+  const sb=$("saveNowBtn");
+  if(sb) sb.addEventListener("click",async ()=>{
+    if(!store.remote) return;
+    saveIndicator("pending");
+    saveCfg();                 // enqueue the latest project data
+    await store.flushNow();    // push it now and report the result
+    if(!store.hasPending()) saveIndicator("ok");
+  });
+}
+
+(function boot(){
+  if(isClient()){ document.body.classList.add("client"); loadCfg(); loadProject(); return; }
+  if(!store.remote){ loadCfg(); renderSelector(); checkPersistence(); loadProject(); return; }   // standalone file
+  const saved=(()=>{ try{return sessionStorage.getItem("wrt.auth");}catch(e){return null;} })();
+  if(saved){ authHeader=saved; internalBoot(true); } else showLogin();
+})();
 </script>
 </body>
 </html>

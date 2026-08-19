@@ -211,15 +211,17 @@ app.use(express.json({ limit: "6mb" }));
 app.get("/healthz", (req, res) => res.json({ ok: true }));
 
 // Internal app (full access)
-app.get("/", auth, async (req, res) => {
-  setSessionCookie(req, res);
+// Internal app shell (public HTML/JS, no data). The app logs in and fetches
+// state itself via the authenticated API, sending credentials on every request.
+app.get("/", async (req, res) => {
   res.set("Cache-Control", "no-store");
-  const state = await appSnapshot();
   const cfg = { mode: "internal", origin: baseUrl(req) };
-  const html = inject(INDEX_HTML,
-    "window.__CONFIG__=" + safeJson(cfg) + ";window.__STATE__=" + safeJson(state) + ";");
+  const html = inject(INDEX_HTML, "window.__CONFIG__=" + safeJson(cfg) + ";");
   res.type("html").send(html);
 });
+
+// Lightweight credential check for the app's login form.
+app.get("/api/ping", auth, (req, res) => res.json({ ok: true }));
 
 // Read shared state (for polling / initial sync)
 app.get("/api/state", auth, async (req, res) => {
