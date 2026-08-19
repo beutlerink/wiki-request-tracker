@@ -213,6 +213,7 @@ app.get("/healthz", (req, res) => res.json({ ok: true }));
 // Internal app (full access)
 app.get("/", auth, async (req, res) => {
   setSessionCookie(req, res);
+  res.set("Cache-Control", "no-store");
   const state = await appSnapshot();
   const cfg = { mode: "internal", origin: baseUrl(req) };
   const html = inject(INDEX_HTML,
@@ -254,6 +255,7 @@ app.get("/c/:token", async (req, res) => {
   if (!project) return res.status(404).send("This client link is not valid.");
   const baked = await buildBaked(project);
   if (!baked) return res.status(404).send("This project is no longer available.");
+  res.set("Cache-Control", "no-store");
   const html = inject(INDEX_HTML, "window.__BAKED__=" + safeJson(baked) + ";");
   res.type("html").send(html);
 });
