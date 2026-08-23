@@ -651,6 +651,7 @@ function loadCfg(){
     projects=[BAKED.project]; current=0;
     if(BAKED.notes) Object.keys(BAKED.notes).forEach(k=>store.set(k,BAKED.notes[k]));
     if(BAKED.statuses) Object.keys(BAKED.statuses).forEach(k=>store.set(k,BAKED.statuses[k]));
+    if(BAKED.ai) Object.keys(BAKED.ai).forEach(hk=>{ const a=BAKED.ai[hk]; if(a) aiResults["w:"+hk]={status:a.status,summary:a.summary,sig:null}; });
     return;
   }
   try{ projects=JSON.parse(store.get(CFG_KEY)); if(!Array.isArray(projects)||!projects.length) throw 0; }
@@ -1041,7 +1042,7 @@ async function analyzeThreads(force){
   try{
     const r=await fetch("/api/analyze",{method:"POST",credentials:"same-origin",
       headers:{"Content-Type":"application/json",Authorization:authHeader},
-      body:JSON.stringify({items:need.map(n=>({id:n.id,title:n.title,body:n.body})),ours:ours,force:!!force})});
+      body:JSON.stringify({items:need.map(n=>({id:n.id,title:n.title,body:n.body})),ours:ours,project:(lastData.proj&&lastData.proj.name)||"",force:!!force})});
     if(r.ok){
       const j=await r.json();
       if(j.enabled===false){ _aiEnabled=false; updateReadBtn("disabled"); return; }
@@ -1233,7 +1234,7 @@ function rowHTML(it, client, dragOn, hiddenRow){
       '<div class="c-req">'+
         (dragOn?'<span class="drag-handle" title="drag to reorder">\u2261</span>':'')+
         '<span class="c-title">'+esc(cleanHeading(it.heading))+'</span>'+
-        '<div class="c-sum">'+esc(summaryLine(it))+'</div>'+
+        (it.kind==="manual" ? '<div class="c-sum">'+esc(summaryLine(it))+'</div>' : '')+
       '</div>'+
       '<div class="c-where">'+where+'</div>'+
       '<div class="c-status">'+statusCell+'</div>'+
@@ -1246,7 +1247,8 @@ function rowHTML(it, client, dragOn, hiddenRow){
 
 function detailHTML(it, client, hiddenRow){
   const done=(it.status==="implemented"||it.status==="declined");
-  let bits='<div class="d-analysis">'+esc(analysisText(it))+'</div>';
+  const analysis=(it.ai && it.ai.summary) ? it.ai.summary : analysisText(it);
+  let bits='<div class="d-analysis">'+esc(analysis)+'</div>';
   if(!client && it.kind==="wiki" && it.override && it.override!==it.auto)
     bits+='<div class="p-hint">Set manually. The page currently reads: '+esc(STATUS[it.auto]?STATUS[it.auto].label:it.auto)+'.</div>';
   const links=[];
