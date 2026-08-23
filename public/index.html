@@ -192,7 +192,28 @@
     background:var(--surface-alt);border:1px solid var(--line);border-radius:5px;padding:1px 6px;white-space:nowrap}
   .src.loc{color:var(--posted-ink);background:var(--posted-bg);border-color:var(--posted-line)}
   .c-status select{width:100%;font:inherit;font-size:12px;padding:4px 6px;border:1px solid var(--line-strong);border-radius:6px;background:var(--surface);color:var(--ink)}
-  .c-upd{font-family:var(--mono);font-size:11px;color:var(--muted);white-space:nowrap}
+  .c-upd{font-family:var(--label);font-size:11px;color:var(--muted);white-space:nowrap}
+  .add-composer{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:12px 14px;margin:0 0 10px;
+    border:1px solid var(--line);border-radius:10px;background:var(--surface-alt)}
+  .add-composer[hidden]{display:none}
+  .add-composer #acTitle{flex:1 1 260px;min-width:180px;font:inherit;font-size:14px;padding:8px 10px;
+    border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink)}
+  .add-composer select{font:inherit;font-size:13px;padding:7px 8px;border:1px solid var(--line-strong);
+    border-radius:8px;background:var(--surface);color:var(--ink)}
+  .add-composer #acAdd{font:inherit;font-weight:600;font-size:13px;color:#fff;background:var(--accent);
+    border:none;border-radius:8px;padding:8px 16px;cursor:pointer}
+  .add-composer #acAdd:hover{filter:brightness(.96)}
+  .add-msg{font-family:var(--label);font-size:12.5px;font-weight:600}
+  .add-msg.ok{color:var(--done-ink)} .add-msg.err{color:var(--declined-ink)}
+  .menu-wrap{position:relative;display:inline-block}
+  #menuBtn{font-size:16px;line-height:1;padding:6px 11px}
+  .menu-drop{position:absolute;top:calc(100% + 6px);left:0;z-index:200;min-width:184px;background:var(--surface);
+    border:1px solid var(--line-strong);border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.12);padding:6px}
+  .menu-drop[hidden]{display:none}
+  .menu-item{display:block;width:100%;text-align:left;font:inherit;font-size:13.5px;color:var(--ink);
+    background:none;border:none;border-radius:7px;padding:8px 10px;cursor:pointer}
+  .menu-item:hover{background:var(--surface-alt)}
+  .menu-sep{height:1px;background:var(--line);margin:5px 4px}
   .c-act{display:flex;gap:8px;align-items:center;justify-content:flex-end}
   .c-act .cnum{font-size:11px;color:var(--muted);white-space:nowrap}
   .cbtn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:2px 3px;line-height:1;text-decoration:none}
@@ -237,7 +258,7 @@
   .prog-legend .lg{display:flex;align-items:center;gap:6px}
   .prog-legend .dot{width:10px;height:10px;border-radius:3px;display:inline-block;flex:none}
   .prog-legend b{color:var(--ink);font-family:var(--mono);font-weight:600}
-  .age{font-family:var(--mono);font-size:10.5px;font-weight:600;letter-spacing:.03em;padding:2px 7px;border-radius:5px;border:1px solid}
+  .age{font-family:var(--label);font-size:10.5px;font-weight:600;letter-spacing:.03em;padding:2px 7px;border-radius:5px;border:1px solid}
   .age.age-new{color:var(--muted);background:var(--idle-bg);border-color:var(--idle-line)}
   .age.age-mid{color:var(--await-ink);background:var(--await-bg);border-color:var(--await-line)}
   .age.age-old{color:var(--declined-ink);background:var(--declined-bg);border-color:var(--declined-line)}
@@ -262,7 +283,7 @@
   .tag{font-family:var(--mono);font-size:10.5px;letter-spacing:.03em;border:1px solid var(--line-strong);
     border-radius:5px;padding:1px 6px;color:var(--muted);background:#fbfcfd}
   .tag.up{color:var(--posted-ink);border-color:var(--posted-line);background:var(--posted-bg)}
-  .pill{font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.02em;padding:3px 9px;
+  .pill{font-family:var(--label);font-size:11px;font-weight:600;letter-spacing:.02em;padding:3px 9px;
     border-radius:20px;border:1px solid;white-space:nowrap;flex:none}
   .pill.awaiting{color:var(--await-ink);background:var(--await-bg);border-color:var(--await-line)}
   .pill.posted{color:var(--posted-ink);background:var(--posted-bg);border-color:var(--posted-line)}
@@ -356,8 +377,17 @@
   <div id="saveWarn" class="nosave internalOnly" hidden></div>
 
   <div class="bar">
+    <div class="menu-wrap internalOnly" id="menuWrap">
+      <button class="ghost" id="menuBtn" type="button" aria-haspopup="true" aria-expanded="false" title="Menu">&#9776;</button>
+      <div class="menu-drop" id="menuDrop" hidden>
+        <button class="menu-item" id="mNewProj" type="button">+ New project</button>
+        <div class="menu-sep"></div>
+        <button class="menu-item" id="mExport" type="button">Export setup</button>
+        <button class="menu-item" id="mImport" type="button">Import setup</button>
+      </div>
+    </div>
     <select id="projSelect" class="internalOnly" aria-label="Choose project"></select>
-    <button class="ghost internalOnly" id="manageBtn" type="button">Manage projects</button>
+    <button class="ghost internalOnly" id="manageBtn" type="button">Project settings</button>
     <button class="ghost internalOnly" id="previewBtn" type="button">Preview client view</button>
     <button id="refreshBtn" type="button">Refresh</button>
     <button class="internalOnly" id="saveNowBtn" type="button" hidden>Save</button>
@@ -418,13 +448,10 @@ Draft:Some draft article"></textarea>
     <div class="mactions">
       <button id="saveBtn" type="button">Save &amp; close</button>
       <button class="ghost" id="doneBtn" type="button">Done</button>
-      <button class="ghost" id="newBtn" type="button">New project</button>
       <button class="danger" id="deleteBtn" type="button">Delete this project</button>
       <span class="spacer"></span>
       <button class="ghost" id="clientLinkBtn" type="button" hidden>Copy client link</button>
       <button class="ghost" id="clientFileBtn" type="button">Export client file</button>
-      <button class="ghost" id="exportBtn" type="button">Export setup</button>
-      <button class="ghost" id="importBtn" type="button">Import setup</button>
       <input id="importFile" type="file" accept="application/json,.json" hidden>
     </div>
   </section>
@@ -453,10 +480,18 @@ Draft:Some draft article"></textarea>
             </select>
           </label>
           <label id="showHiddenWrap" class="internalOnly" style="display:none"><input type="checkbox" id="showHidden"> show hidden (<span id="hiddenCount">0</span>)</label>
+          <button class="ghost small internalOnly" id="reReadBtn" type="button" title="Have the AI re-read every discussion.">Re-read discussions</button>
           <button class="ghost small internalOnly" id="addBtn" type="button">+ Add upcoming request</button>
         </span>
       </h2>
       <div class="tabs" id="reqTabs"></div>
+      <div id="addComposer" class="add-composer internalOnly" hidden>
+        <input id="acTitle" type="text" autocomplete="off" placeholder="What should this request cover? e.g. Update the leadership section">
+        <select id="acStatus" aria-label="status"></select>
+        <button id="acAdd" type="button">Add request</button>
+        <button id="acCancel" class="ghost" type="button">Cancel</button>
+        <span id="acMsg" class="add-msg" aria-live="polite"></span>
+      </div>
       <div id="reqList"></div>
       <datalist id="groupList"></datalist>
     </main>
@@ -897,7 +932,7 @@ function fetchPage(title){
       const votes=voteTally(s.body);
       const anchor = anchorFor[headKey(s.title)] || cleanHeading(s.title).replace(/ /g,"_");
       return {title:s.title,anchor:anchor,type:c.type,base:c.base,latest:latestTs(s.body),first:firstTs(s.body),
-        preview:previewFor(s.body), ask:askGist(s.body),
+        preview:previewFor(s.body), ask:askGist(s.body), body:s.body,
         starter:(starterOf(s.body)||c.signers[0]||""), participants:c.signers.length, last:lastSignerOf(s.body),
         votes, move:isMoveDisc(s.title,s.body)};
     });
@@ -940,7 +975,7 @@ async function loadProject(){
       if(!anyKw(sec.title, kws))return;
       if(start && sec.latest && sec.latest<start)return;
       requests.push({source:title,article,label:sourceLabel(title),heading:sec.title,anchor:sec.anchor,
-        type:sec.type,base:sec.base,latest:sec.latest,first:sec.first,
+        type:sec.type,base:sec.base,latest:sec.latest,first:sec.first,body:sec.body,
         preview:sec.preview,ask:sec.ask,starter:sec.starter,participants:sec.participants,votes:sec.votes,move:sec.move,last:sec.last,
         url:"https://en.wikipedia.org/wiki/"+encTitle(data.resolved||title)+"#"+sec.anchor});
     });
@@ -983,6 +1018,47 @@ async function loadProject(){
   render();
   $("synced").textContent="Updated "+new Date().toLocaleString();
   $("refreshBtn").disabled=false;
+  analyzeThreads(false);   // AI reads the discussions, then re-renders with real statuses + summaries
+}
+
+/* AI discussion analysis: results keyed by item key, refreshed when content changes */
+const aiResults = {};
+let _aiEnabled = true, _aiInFlight = false;
+function strHash(s){ let h=0; for(let i=0;i<s.length;i++){ h=((h<<5)-h+s.charCodeAt(i))|0; } return String(h>>>0); }
+function aiSig(it){ return strHash((it.heading||"")+"\u0000"+(it.body||"")); }
+async function analyzeThreads(force){
+  if(!store.remote || !lastData) return;
+  const items=buildItems();
+  const ours=effectiveUsers(lastData.proj);
+  const need=[];
+  items.forEach(it=>{
+    if(it.kind!=="wiki" || it.ours===false || !it.body) return;
+    const key=itemKey(it), sig=aiSig(it);
+    if(force || !aiResults[key] || aiResults[key].sig!==sig) need.push({id:key,title:it.heading,body:it.body,sig});
+  });
+  if(!need.length || _aiInFlight){ updateReadBtn("idle"); return; }
+  _aiInFlight=true; updateReadBtn("working");
+  try{
+    const r=await fetch("/api/analyze",{method:"POST",credentials:"same-origin",
+      headers:{"Content-Type":"application/json",Authorization:authHeader},
+      body:JSON.stringify({items:need.map(n=>({id:n.id,title:n.title,body:n.body})),ours:ours,force:!!force})});
+    if(r.ok){
+      const j=await r.json();
+      if(j.enabled===false){ _aiEnabled=false; updateReadBtn("disabled"); return; }
+      _aiEnabled=true;
+      const sigByKey={}; need.forEach(n=>{sigByKey[n.id]=n.sig;});
+      Object.keys(j.results||{}).forEach(k=>{ const rr=j.results[k]; if(rr&&!rr.error){ aiResults[k]={status:rr.status,summary:rr.summary,sig:sigByKey[k]}; } });
+      render();
+    }
+  }catch(e){}
+  finally{ _aiInFlight=false; updateReadBtn("idle"); }
+}
+function updateReadBtn(state){
+  const b=$("reReadBtn"); if(!b) return;
+  if(!_aiEnabled){ b.textContent="AI reading off"; b.disabled=true; b.title="Add an ANTHROPIC_API_KEY in Render to turn on AI reading of discussions."; return; }
+  b.disabled=(state==="working");
+  b.textContent=(state==="working")?"Reading\u2026":"Re-read discussions";
+  b.title="Have the AI re-read every discussion and refresh statuses and summaries.";
 }
 
 function buildItems(){
@@ -997,8 +1073,11 @@ function buildItems(){
     // if we had the last word on a declined/discussed thread, it's re-opened and back with the editors
     let eff=r.auto;
     if(!override && r.ours!==false && lastIsTeam && (eff==="declined"||eff==="replied")) eff="awaiting";
-    const status=override||eff;
-    return {kind:"wiki", statusKey:sk, noteKey:nk, hideKey:r.source+"::"+r.heading, group, override, auto:eff, base:r.base, confirm:r.confirm, ours:r.ours,
+    const key="w:"+r.source+"::"+r.heading;
+    const ai=aiResults[key]||null;
+    const autoFinal=(ai&&ai.status&&r.ours!==false)?ai.status:eff;   // AI reading wins over keyword guess
+    const status=override||autoFinal;
+    return {kind:"wiki", statusKey:sk, noteKey:nk, hideKey:r.source+"::"+r.heading, group, override, auto:autoFinal, heurAuto:eff, ai, body:r.body, base:r.base, confirm:r.confirm, ours:r.ours,
       status:status, heading:r.heading, label:r.label, type:r.type, last:r.last,
       latest:r.latest, first:r.first, url:r.url, note:store.get(nk)||"", promoted:false,
       preview:r.preview, ask:r.ask, starter:r.starter, participants:r.participants, votes:r.votes, move:r.move};
@@ -1116,6 +1195,7 @@ function topicPhrase(it){
 }
 function summaryLine(it){
   if(it.kind==="manual") return "Planned; not yet posted.";
+  if(it.ai && it.ai.summary) return it.ai.summary;   // AI reading of the actual discussion
   const who=sideLabel(it.starter) || (it.ours===false?"An editor":"Someone on our side");
   const topic=topicPhrase(it);
   const v=it.votes||{support:0,oppose:0};
@@ -1448,16 +1528,25 @@ if(!isClient()){
   $("saveBtn").addEventListener("click",()=>{projects[current]=readForm();saveCfg();renderSelector();$("managePanel").hidden=true;loadProject();});
   $("doneBtn").addEventListener("click",()=>{$("managePanel").hidden=true;});
   $("closeBtn").addEventListener("click",()=>{$("managePanel").hidden=true;});
-  $("newBtn").addEventListener("click",()=>{projects.push({name:"New project",start:"",team:"",sources:[],manual:[]});current=projects.length-1;saveCfg();renderSelector();fillForm();});
+  $("mNewProj").addEventListener("click",()=>{
+    closeMenu();
+    projects.push({name:"New project",start:"",team:"",agency:AGENCY_ROSTER.slice(),sources:[],manual:[]});
+    current=projects.length-1; saveCfg(); renderSelector();
+    $("managePanel").hidden=false; fillForm(); $("fName").focus(); $("fName").select();
+  });
   $("deleteBtn").addEventListener("click",()=>{
     if(projects.length<=1){alert("Keep at least one project. Edit this one instead.");return;}
     if(!confirm("Delete \""+(projects[current].name||"this project")+"\"?"))return;
     projects.splice(current,1);current=0;saveCfg();renderSelector();fillForm();loadProject();});
-  $("exportBtn").addEventListener("click",()=>{
+  $("mExport").addEventListener("click",()=>{
+    closeMenu();
     const payload={version:4, projects:projects};
     const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
     const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="wiki-tracker-setup.json";a.click();URL.revokeObjectURL(a.href);});
-  $("importBtn").addEventListener("click",()=>$("importFile").click());
+  $("mImport").addEventListener("click",()=>{ closeMenu(); $("importFile").click(); });
+  function closeMenu(){ const d=$("menuDrop"); if(d){ d.hidden=true; $("menuBtn").setAttribute("aria-expanded","false"); } }
+  $("menuBtn").addEventListener("click",e=>{ e.stopPropagation(); const d=$("menuDrop"); const show=d.hidden; d.hidden=!show; $("menuBtn").setAttribute("aria-expanded",String(show)); });
+  document.addEventListener("click",e=>{ const w=$("menuWrap"); if(w && !w.contains(e.target)) closeMenu(); });
   $("importFile").addEventListener("change",e=>{
     const f=e.target.files[0];if(!f)return;const r=new FileReader();
     r.onload=()=>{try{
@@ -1472,14 +1561,33 @@ if(!isClient()){
     }catch(err){alert("That file didn't look like a valid setup export.");}};
     r.readAsText(f);});
   $("addBtn").addEventListener("click",()=>{
+    const c=$("addComposer"); if(!c) return;
+    if(!c.hidden){ c.hidden=true; return; }          // toggle off if already open
+    $("acStatus").innerHTML=statusOptions("notposted",false);
+    $("acTitle").value=""; const m=$("acMsg"); m.textContent=""; m.className="add-msg";
+    c.hidden=false; $("acTitle").focus();
+  });
+  function acSubmit(){
+    const m=$("acMsg");
+    const title=($("acTitle").value||"").trim();
+    if(!title){ m.textContent="Enter a short title first."; m.className="add-msg err"; $("acTitle").focus(); return; }
     const p=projects[current]; if(!Array.isArray(p.manual))p.manual=[];
     const id=Date.now()+Math.floor(Math.random()*1000);
-    p.manual.push({id:id,title:"New request",status:"notposted",note:""});
-    expandedSet.add("m:"+id);              // open the editor right away
+    p.manual.push({id:id,title:title,status:$("acStatus").value||"notposted",note:""});
     saveCfg(); render();
-    const inp=document.querySelector('input[data-mtitle="'+id+'"]');
-    if(inp){ inp.focus(); inp.select(); }
-  });
+    m.textContent="Added \u2713 saving\u2026"; m.className="add-msg ok";
+    if(store.remote){
+      store.flushNow().then(ok=>{
+        m.textContent = ok ? "Added \u2713 saved" : "Added, but not saved yet \u2014 check your connection";
+        m.className = "add-msg " + (ok?"ok":"err");
+      });
+    } else { m.textContent="Added \u2713"; }
+    $("acTitle").value=""; $("acTitle").focus();     // ready for the next one
+  }
+  $("acAdd").addEventListener("click",acSubmit);
+  $("acTitle").addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); acSubmit(); } });
+  $("acCancel").addEventListener("click",()=>{ $("addComposer").hidden=true; });
+  { const rb=$("reReadBtn"); if(rb) rb.addEventListener("click",()=>analyzeThreads(true)); }
   $("clientFileBtn").addEventListener("click",exportClientFile);
   if(store.remote){ const cl=$("clientLinkBtn"); if(cl){ cl.hidden=false; cl.addEventListener("click",copyClientLink); } }
 }

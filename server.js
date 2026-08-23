@@ -20,6 +20,10 @@ const PORT = process.env.PORT || 10000;
 const DATABASE_URL = process.env.DATABASE_URL || "";
 const INTERNAL_USER = process.env.INTERNAL_USER || "";
 const INTERNAL_PASS = process.env.INTERNAL_PASS || "";
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || "";
+const AI_MODEL = process.env.AI_MODEL || "claude-haiku-4-5-20251001";
+const AI_PROMPT_VERSION = "v1";  // bump to invalidate cached AI reads after a prompt change
+const AI_API_URL = process.env.AI_API_URL || "https://api.anthropic.com/v1/messages";
 
 const INDEX_HTML = fs.readFileSync(path.join(__dirname, "public", "index.html"), "utf8");
 
@@ -157,7 +161,51 @@ async function clientTokenFor(projectName) {
   return token;
 }
 
-/* ---------- html injection ---------- */
+/* ---------- AI discussion analysis ---------- */
+const VALID_AI_STATUS = new Set(["awaiting", "replied", "partial", "implemented", "declined", "monitored"]);
+function aiHash(title, body, ours) {
+  return crypto.createHash("sha256")
+    .update(AI_PROMPT_VERSION + "\u0000" + (title || "") + "\u0000" + (body || "") + "\u0000" + (ours || []).join(","))
+    .digest("hex").slice(0, 40);
+}
+const AI_SYSTEM =
+  "You analyze a single Wikipedia Talk-page edit-request discussion for a PR agency (Beutler Ink) that posts " +
+  "conflict-of-interest edit requests on behalf of clients. You will be given the discussion wikitext and the list " +
+  "of usernames that belong to the agency ('our accounts'). Return ONLY a JSON object, no prose, no code fences, with keys:\n" +
+  "  status: one of awaiting | replied | partial | implemented | declined | monitored\n" +
+  "    - awaiting: the request was posted but no independent editor has responded yet\n" +
+  "    - replied: an independent editor has responded and discussion is ongoing, no resolution yet\n" +
+  "    - partial: some of the requested changes were made or accepted, but not all\n" +
+  "    - implemented: all requested changes were made/accepted\n" +
+  "    - declined: the request was rejected or closed without the changes\n" +
+  "    - monitored: an open RfC / requested move / broader discussion rather than a simple accept/decline\n" +
+  "  summary: ONE plain sentence (max 22 words) describing the CURRENT state of the discussion, i.e. what has " +
+  "happened most recently, not a restatement of the request title. Refer to any of the agency's own accounts as " +
+  "'Beutler'. Refer to other participants by their role ('an editor') or their username. Do not use first person.\n" +
+  "Judge partial vs implemented carefully: if an editor did part of the work or agreed to part, use partial.";
+function aiUserMsg(title, body, ours) {
+  return "Agency ('our') accounts: " + ((ours && ours.length) ? ours.join(", ") : "(none specified)") +
+    "\n\nRequest title: " + (title || "(untitled)") +
+    "\n\nDiscussion wikitext:\n" + String(body || "").slice(0, 8000);
+}
+function stripFences(t) { return String(t || "").replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim(); }
+async function analyzeThread(title, body, ours) {
+  const r = await fetch(AI_API_URL, {
+    method: "POST",
+    headers: { "x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+    body: JSON.stringify({
+      model: AI_MODEL, max_tokens: 300, system: AI_SYSTEM,
+      messages: [{ role: "user", content: aiUserMsg(title, body, ours) }]
+    })
+  });
+  if (!r.ok) { const t = await r.text().catch(() => ""); throw new Error("anthropic " + r.status + " " + t.slice(0, 200)); }
+  const data = await r.json();
+  const text = (data.content || []).filter(b => b.type === "text").map(b => b.text).join("");
+  const parsed = JSON.parse(stripFences(text));
+  const status = VALID_AI_STATUS.has(parsed.status) ? parsed.status : "replied";
+  const summary = String(parsed.summary || "").replace(/\s+/g, " ").trim().slice(0, 300);
+  return { status, summary };
+}
 function inject(html, scriptBody) {
   const tag = "<script>" + scriptBody + "</scr" + "ipt>";
   return html.replace("</head>", tag + "</head>");
@@ -249,6 +297,46 @@ app.post("/api/state", auth, async (req, res) => {
   } catch (e) {
     console.error("write error:", e.message);
     res.status(500).json({ ok: false, error: "write failed" });
+  }
+});
+
+// AI discussion analysis (status + summary), cached per discussion content
+app.post("/api/analyze", auth, async (req, res) => {
+  if (!ANTHROPIC_API_KEY) return res.json({ enabled: false });
+  const items = Array.isArray(req.body && req.body.items) ? req.body.items.slice(0, 40) : [];
+  const ours = Array.isArray(req.body && req.body.ours) ? req.body.ours : [];
+  const force = !!(req.body && req.body.force);
+  const results = {};
+  // small concurrency limit so we don't hammer the API
+  const queue = items.slice();
+  async function worker() {
+    while (queue.length) {
+      const it = queue.shift();
+      if (!it || typeof it.id !== "string") continue;
+      const title = String(it.title || ""), body = String(it.body || "");
+      if (!body.trim()) continue;
+      const hash = aiHash(title, body, ours);
+      const cacheKey = "sys.ai::" + hash;
+      try {
+        if (!force) {
+          const cached = await db.get(cacheKey);
+          if (cached) { results[it.id] = JSON.parse(cached); continue; }
+        }
+        const out = await analyzeThread(title, body, ours);
+        await db.setMany([{ k: cacheKey, v: JSON.stringify(out) }]);
+        results[it.id] = out;
+      } catch (e) {
+        console.error("analyze error:", e.message);
+        results[it.id] = { error: true };
+      }
+    }
+  }
+  try {
+    await Promise.all([worker(), worker(), worker()]);
+    res.json({ enabled: true, results });
+  } catch (e) {
+    console.error("analyze batch error:", e.message);
+    res.status(500).json({ enabled: true, error: "analyze failed", results });
   }
 });
 

@@ -44,6 +44,18 @@ To trial for less, edit `render.yaml` before deploying:
 - Database `plan: free` — $0, but the free database **expires 30 days after creation**.
 - Web service `plan: free` — $0, but it **sleeps after 15 minutes idle and takes ~1 minute to wake** on the next visit (noticeable when a client opens a link).
 
+## Enabling AI reading of discussions
+
+The tracker can have an AI model read each Wikipedia discussion and set an accurate status (including "Partially implemented") plus a one-line summary of the latest state, instead of guessing from keywords.
+
+To turn it on, add one environment variable to the web service in Render:
+
+1. Open the `request-tracker` service → **Environment**.
+2. Add `ANTHROPIC_API_KEY` and paste an API key from https://console.anthropic.com (Settings → API Keys).
+3. Save. Render redeploys automatically.
+
+It uses Claude Haiku 4.5 (the fastest, cheapest model, about $1 per million input tokens) and caches each reading, so a discussion is only re-read when its content changes. At normal volume the cost is a few cents. Inside the app, use **Re-read discussions** to force a fresh pass. Without the key, the app falls back to the old keyword-based statuses and the button shows "AI reading off."
+
 ## Updating the app later
 
 Push a change to the repo (or upload the new file on GitHub). Render redeploys automatically. Your data lives in Postgres, so it is untouched by redeploys.

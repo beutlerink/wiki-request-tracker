@@ -26,3 +26,5 @@ services:
         sync: false          # Render will prompt you for this (the team login name)
       - key: INTERNAL_PASS
         sync: false          # Render will prompt you for this (the team password)
+      - key: ANTHROPIC_API_KEY
+        sync: false          # your Anthropic API key, enables AI reading of discussions
