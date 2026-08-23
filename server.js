@@ -145,6 +145,7 @@ async function buildBaked(projectName) {
   const baked = { client: true, ts: new Date().toISOString(), project: projClone, notes: {}, statuses: {} };
   baked.notes = await db.getPrefix("wrt.note::" + projectName + "::");
   baked.statuses = await db.getPrefix("wrt.status::" + projectName + "::");
+  baked.resolved = await db.getPrefix("wrt.resolved::" + projectName + "::");
   const aiPrefix = "sys.aithread::" + projectName + "::";
   const aiRows = await db.getPrefix(aiPrefix);
   baked.ai = {};

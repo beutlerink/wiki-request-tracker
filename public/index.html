@@ -214,6 +214,30 @@
     background:none;border:none;border-radius:7px;padding:8px 10px;cursor:pointer}
   .menu-item:hover{background:var(--surface-alt)}
   .menu-sep{height:1px;background:var(--line);margin:5px 4px}
+  .resolve-toggle{display:inline-flex;align-items:center;gap:6px;font-family:var(--label);font-size:12.5px;
+    color:var(--done-ink);white-space:nowrap;cursor:pointer}
+  .resolve-toggle input{cursor:pointer;accent-color:var(--done-ink)}
+  .flag-tag{display:inline-block;margin-top:3px;font-family:var(--label);font-size:11px;font-weight:600;
+    color:#7a4b12;background:#fff4e5;border:1px solid #f0c27a;border-radius:5px;padding:1px 7px;white-space:nowrap}
+  .tab.attn{color:#7a4b12}
+  .tab.attn .tct{background:#f0c27a;color:#5a3908}
+  .tab.attn.active{background:#fff4e5;border-color:#f0c27a;color:#5a3908}
+  .flags{display:flex;flex-direction:column;gap:6px;margin:2px 0 10px}
+  .flag-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 10px;border:1px solid #f0c27a;
+    background:#fff8ef;border-radius:8px}
+  .flag-row.res{border-color:var(--done-line);background:var(--done-bg)}
+  .flag-lab{font-family:var(--label);font-size:12.5px;color:var(--ink);font-weight:500}
+  .flag-row.res .flag-lab{color:var(--done-ink);font-weight:600}
+  .flag-note{font-family:var(--label);font-size:11.5px;color:var(--muted);font-style:italic}
+  .flag-btn{font:inherit;font-family:var(--label);font-size:12px;font-weight:600;cursor:pointer;text-decoration:none;
+    padding:5px 11px;border-radius:7px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink)}
+  .flag-btn:hover{background:var(--surface-alt)}
+  .flag-btn.primary{background:var(--done-ink);border-color:var(--done-ink);color:#fff}
+  .flag-btn.primary:hover{filter:brightness(.96)}
+  .fchk{display:flex;align-items:flex-start;gap:9px;font-family:var(--label);font-size:13.5px;color:var(--ink);
+    line-height:1.45;margin:10px 0;cursor:pointer}
+  .fchk input{margin-top:2px;width:16px;height:16px;accent-color:var(--accent);flex:none;cursor:pointer}
+  .mhint{font-family:var(--label);font-size:13px;color:var(--muted);margin:2px 0 6px}
   .c-act{display:flex;gap:8px;align-items:center;justify-content:flex-end}
   .c-act .cnum{font-size:11px;color:var(--muted);white-space:nowrap}
   .cbtn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:2px 3px;line-height:1;text-decoration:none}
@@ -382,6 +406,8 @@
       <div class="menu-drop" id="menuDrop" hidden>
         <button class="menu-item" id="mNewProj" type="button">+ New project</button>
         <div class="menu-sep"></div>
+        <button class="menu-item" id="mFlags" type="button">Flag settings</button>
+        <div class="menu-sep"></div>
         <button class="menu-item" id="mExport" type="button">Export setup</button>
         <button class="menu-item" id="mImport" type="button">Import setup</button>
       </div>
@@ -456,9 +482,18 @@ Draft:Some draft article"></textarea>
     </div>
   </section>
 
+  <section class="manage internalOnly" id="flagPanel" hidden>
+    <h2>Flag settings</h2>
+    <p class="mhint">Choose which situations raise a "Needs attention" flag. Applies to the whole team.</p>
+    <label class="fchk"><input type="checkbox" id="fcDecide"> <span><strong>Decision needed</strong> &mdash; a partial or declined request you haven't marked resolved or still-pursuing</span></label>
+    <label class="fchk"><input type="checkbox" id="fcReplied"> <span><strong>Editor replied</strong> &mdash; an editor responded and the ball is in your court</span></label>
+    <label class="fchk"><input type="checkbox" id="fcWait"> <span><strong>Long wait</strong> &mdash; a request has been awaiting an editor for 30+ days</span></label>
+    <div class="mactions"><button id="flagDone" type="button">Done</button></div>
+  </section>
+
   <div class="prog-panel" id="stats" hidden>
     <div class="prog-head">
-      <div class="prog-num"><span id="stProg">&mdash;</span> <span class="prog-lab">implemented</span></div>
+      <div class="prog-num"><span id="stProg">&mdash;</span> <span class="prog-lab">resolved</span></div>
       <div class="prog-last internalOnly" id="stLast"></div>
     </div>
     <div class="prog-bar" id="progSeg"></div>
@@ -651,6 +686,7 @@ function loadCfg(){
     projects=[BAKED.project]; current=0;
     if(BAKED.notes) Object.keys(BAKED.notes).forEach(k=>store.set(k,BAKED.notes[k]));
     if(BAKED.statuses) Object.keys(BAKED.statuses).forEach(k=>store.set(k,BAKED.statuses[k]));
+    if(BAKED.resolved) Object.keys(BAKED.resolved).forEach(k=>store.set(k,BAKED.resolved[k]));
     if(BAKED.ai) Object.keys(BAKED.ai).forEach(hk=>{ const a=BAKED.ai[hk]; if(a) aiResults["w:"+hk]={status:a.status,summary:a.summary,sig:null}; });
     return;
   }
@@ -1078,7 +1114,10 @@ function buildItems(){
     const ai=aiResults[key]||null;
     const autoFinal=(ai&&ai.status&&r.ours!==false)?ai.status:eff;   // AI reading wins over keyword guess
     const status=override||autoFinal;
-    return {kind:"wiki", statusKey:sk, noteKey:nk, hideKey:r.source+"::"+r.heading, group, override, auto:autoFinal, heurAuto:eff, ai, body:r.body, base:r.base, confirm:r.confirm, ours:r.ours,
+    const rk = group ? ("wrt.resolved::"+proj.name+"::group::"+group) : ("wrt.resolved::"+proj.name+"::"+r.source+"::"+r.heading);
+    const dismissBase = group ? ("wrt.dismiss::"+proj.name+"::group::"+group) : ("wrt.dismiss::"+proj.name+"::"+r.source+"::"+r.heading);
+    const resolved = store.get(rk)==="1";
+    return {kind:"wiki", statusKey:sk, noteKey:nk, resolvedKey:rk, dismissBase:dismissBase, resolved:resolved, hideKey:r.source+"::"+r.heading, group, override, auto:autoFinal, heurAuto:eff, ai, body:r.body, base:r.base, confirm:r.confirm, ours:r.ours,
       status:status, heading:r.heading, label:r.label, type:r.type, last:r.last,
       latest:r.latest, first:r.first, url:r.url, note:store.get(nk)||"", promoted:false,
       preview:r.preview, ask:r.ask, starter:r.starter, participants:r.participants, votes:r.votes, move:r.move};
@@ -1141,6 +1180,22 @@ function setHidden(proj,set){ store.set(hiddenKeyFor(proj), JSON.stringify([...s
 /* comments: an ordered list of {id,text} per request, replacing the old single note */
 let editingComment=null, commentTargets={}, expandedSet=new Set(), dragKey=null, curFilter="all";
 function itemKey(it){ return it.kind==="manual"?("m:"+it.id):(it.grouped?("g:"+it.group):("w:"+it.hideKey)); }
+/* a request counts toward "resolved": implemented always, or partial/declined you've marked done */
+function itemResolved(it){ return it.ours!==false && (it.status==="implemented" || it.resolved===true); }
+/* which situations raise a "Needs attention" flag (team-wide, toggleable) */
+function flagCfg(){ try{ return Object.assign({decide:true,replied:true,wait:true}, JSON.parse(store.get("wrt.flagcfg")||"{}")); }catch(e){ return {decide:true,replied:true,wait:true}; } }
+function flagSig(it){ return String(it.latest ? it.latest.getTime() : 0); }
+function attentionFlags(it){
+  if(isClient() || it.ours===false || it.kind!=="wiki" || !it.dismissBase) return [];
+  const cfg=flagCfg(), out=[];
+  const sig=flagSig(it);
+  if(cfg.decide && (it.status==="partial"||it.status==="declined") && !it.resolved && store.get(it.dismissBase+"::decide")!=="1")
+    out.push({type:"decide",label:"Decision needed"});
+  if(cfg.replied && it.status==="replied" && store.get(it.dismissBase+"::replied")!==sig)
+    out.push({type:"replied",label:"Reply needed"});
+  if(cfg.wait && (it.status==="awaiting"||it.status==="posted")){ const d=daysAgo(it.first); if(d!==null && d>30 && store.get(it.dismissBase+"::wait")!==sig) out.push({type:"wait",label:d+"d waiting"}); }
+  return out;
+}
 function getOrder(proj){ try{return JSON.parse(store.get("wrt.order::"+proj.name)||"[]");}catch(e){return [];} }
 function setOrder(proj,arr){ store.set("wrt.order::"+proj.name, JSON.stringify(arr)); }
 function genId(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
@@ -1211,7 +1266,7 @@ function summaryLine(it){
 function rowHTML(it, client, dragOn, hiddenRow){
   const st=STATUS[it.status]||STATUS.notposted;
   const key=itemKey(it);
-  const done=(it.status==="implemented"||it.status==="declined");
+  const done=(it.status==="implemented"||it.status==="declined"||it.resolved);
   const expanded=expandedSet.has(key);
   let age="";
   const OPEN_AGE={awaiting:1,posted:1,replied:1};
@@ -1234,7 +1289,9 @@ function rowHTML(it, client, dragOn, hiddenRow){
       '<div class="c-req">'+
         (dragOn?'<span class="drag-handle" title="drag to reorder">\u2261</span>':'')+
         '<span class="c-title">'+esc(cleanHeading(it.heading))+'</span>'+
-        (it.kind==="manual" ? '<div class="c-sum">'+esc(summaryLine(it))+'</div>' : '')+
+        (it.kind==="manual"
+          ? '<div class="c-sum">'+esc(summaryLine(it))+'</div>'
+          : (function(){ const fl=attentionFlags(it); return fl.length ? '<span class="flag-tag" title="Needs attention">\u2691 '+esc(fl[0].label)+(fl.length>1?" +"+(fl.length-1):"")+'</span>' : ''; })())+
       '</div>'+
       '<div class="c-where">'+where+'</div>'+
       '<div class="c-status">'+statusCell+'</div>'+
@@ -1246,7 +1303,7 @@ function rowHTML(it, client, dragOn, hiddenRow){
 }
 
 function detailHTML(it, client, hiddenRow){
-  const done=(it.status==="implemented"||it.status==="declined");
+  const done=(it.status==="implemented"||it.status==="declined"||it.resolved);
   const analysis=(it.ai && it.ai.summary) ? it.ai.summary : analysisText(it);
   let bits='<div class="d-analysis">'+esc(analysis)+'</div>';
   if(!client && it.kind==="wiki" && it.override && it.override!==it.auto)
@@ -1256,6 +1313,27 @@ function detailHTML(it, client, hiddenRow){
   if(it.kind==="wiki" && it.confirm) links.push('<a style="color:var(--done-ink)" href="https://en.wikipedia.org/w/index.php?diff='+it.confirm.revid+'" target="_blank" rel="noopener">\u2713 see the article change \u2197</a>');
   else if(it.kind==="wiki" && it.base==="done") links.push('<span style="color:var(--muted)">reported done; article edit not found in range</span>');
   if(links.length) bits+='<div class="d-links">'+links.join("")+'</div>';
+
+  if(!client && it.kind==="wiki"){
+    let fa="";
+    const sig=flagSig(it);
+    if(it.status==="partial"||it.status==="declined"){
+      if(it.resolved){
+        fa+='<div class="flag-row res"><span class="flag-lab">Resolved \u2713 no further action</span><button class="flag-btn" data-reopen="'+esc(it.resolvedKey)+'" type="button">undo</button></div>';
+      }else{
+        const pursued=store.get(it.dismissBase+"::decide")==="1";
+        fa+='<div class="flag-row"><span class="flag-lab">Has this reached its end?</span>'+
+          '<button class="flag-btn primary" data-resolve-yes="'+esc(it.resolvedKey)+'" data-dismiss-decide="'+esc(it.dismissBase+"::decide")+'" type="button">Resolved, no further action</button>'+
+          '<button class="flag-btn" data-pursue="'+esc(it.dismissBase+"::decide")+'" data-resolvekey="'+esc(it.resolvedKey)+'" type="button">Still pursuing</button>'+
+          (pursued?'<span class="flag-note">marked still pursuing</span>':'')+'</div>';
+      }
+    }
+    attentionFlags(it).forEach(f=>{
+      if(f.type==="replied") fa+='<div class="flag-row"><span class="flag-lab">\u2691 An editor replied \u2014 your move.</span>'+(it.url?'<a class="flag-btn" href="'+it.url+'" target="_blank" rel="noopener">open thread \u2197</a>':'')+'<button class="flag-btn" data-dismiss="'+esc(it.dismissBase+"::replied")+'" data-sig="'+esc(sig)+'" type="button">dismiss</button></div>';
+      if(f.type==="wait") fa+='<div class="flag-row"><span class="flag-lab">\u2691 '+esc(f.label)+' for an editor.</span>'+(it.url?'<a class="flag-btn" href="'+it.url+'" target="_blank" rel="noopener">open thread \u2197</a>':'')+'<button class="flag-btn" data-dismiss="'+esc(it.dismissBase+"::wait")+'" data-sig="'+esc(sig)+'" type="button">dismiss</button></div>';
+    });
+    if(fa) bits+='<div class="flags">'+fa+'</div>';
+  }
 
   if(!client){
     if(hiddenRow){
@@ -1315,8 +1393,8 @@ function render(){
   const counts={}; BUCKETS.forEach(b=>counts[b.key]=0);
   const bmap={}; BUCKETS.forEach(b=>b.statuses.forEach(s=>bmap[s]=b.key));
   oursItems.forEach(i=>{const k=bmap[i.status]; if(k)counts[k]++;});
-  const doneN=counts.implemented||0;
-  $("stProg").textContent = total ? (doneN+" of "+total) : "0";
+  const resolvedN=oursItems.filter(itemResolved).length;
+  $("stProg").textContent = total ? (resolvedN+" of "+total) : "0";
 
   const seg=$("progSeg"), leg=$("progLegend"); seg.innerHTML=""; leg.innerHTML="";
   if(!total){
@@ -1345,14 +1423,17 @@ function render(){
   const TAB_DEFS=[["awaiting","Awaiting"],["replied","In discussion"],["partial","Partial"],["implemented","Implemented"],["declined","Declined"],["notposted","Not posted"],["upcoming","Upcoming"],["onhold","On hold"],["monitored","Monitored"]];
   const tabCounts={}; items.forEach(i=>{ tabCounts[i.status]=(tabCounts[i.status]||0)+1; });
   const present=TAB_DEFS.filter(([s])=>tabCounts[s]);
-  if(!present.some(([s])=>s===curFilter)) { if(curFilter!=="all") curFilter="all"; }
+  const attnCount=items.filter(i=>attentionFlags(i).length>0).length;
+  if(curFilter==="attention" && attnCount===0) curFilter="all";
+  if(curFilter!=="attention" && !present.some(([s])=>s===curFilter)) { if(curFilter!=="all") curFilter="all"; }
   const tabsEl=$("reqTabs");
   if(tabsEl){
     let th='<button class="tab'+(curFilter==="all"?" active":"")+'" data-tab="all" type="button">All<span class="tct">'+items.length+'</span></button>';
+    if(attnCount>0) th+='<button class="tab attn'+(curFilter==="attention"?" active":"")+'" data-tab="attention" type="button">\u2691 Needs attention<span class="tct">'+attnCount+'</span></button>';
     present.forEach(([s,lbl])=>{ th+='<button class="tab'+(curFilter===s?" active":"")+'" data-tab="'+s+'" type="button">'+esc(lbl)+'<span class="tct">'+tabCounts[s]+'</span></button>'; });
     tabsEl.innerHTML=th;
   }
-  function passFilter(i){ return curFilter==="all" ? true : i.status===curFilter; }
+  function passFilter(i){ if(curFilter==="attention") return attentionFlags(i).length>0; return curFilter==="all" ? true : i.status===curFilter; }
   function cmp(a,b){
     if(mode==="custom") return (orderIdx(itemKey(a))-orderIdx(itemKey(b)))||(ORDER[a.status]-ORDER[b.status]);
     if(mode==="waiting"){ const ra=openSet[a.status]?0:1, rb=openSet[b.status]?0:1; if(ra!==rb)return ra-rb; const fa=tval(a.first)||tval(a.latest), fb=tval(b.first)||tval(b.latest); if(!fa&&!fb)return 0; if(!fa)return 1; if(!fb)return -1; return fa-fb; }
@@ -1440,6 +1521,11 @@ function wireRequestControls(dragOn){
     });
   }
   list.querySelectorAll("select[data-sk]").forEach(s=>s.addEventListener("change",()=>{store.set(s.dataset.sk,s.value);render();}));
+  list.querySelectorAll("input[data-resolve]").forEach(c=>c.addEventListener("change",()=>{store.set(c.dataset.resolve, c.checked?"1":"");render();}));
+  list.querySelectorAll("[data-resolve-yes]").forEach(b=>b.addEventListener("click",()=>{store.set(b.dataset.resolveYes,"1"); if(b.dataset.dismissDecide) store.set(b.dataset.dismissDecide,""); render();}));
+  list.querySelectorAll("[data-pursue]").forEach(b=>b.addEventListener("click",()=>{store.set(b.dataset.pursue,"1"); if(b.dataset.resolvekey) store.set(b.dataset.resolvekey,""); render();}));
+  list.querySelectorAll("[data-reopen]").forEach(b=>b.addEventListener("click",()=>{store.set(b.dataset.reopen,""); render();}));
+  list.querySelectorAll("[data-dismiss]").forEach(b=>b.addEventListener("click",()=>{store.set(b.dataset.dismiss, b.dataset.sig||"1"); render();}));
   list.querySelectorAll("select[data-mstatus]").forEach(s=>s.addEventListener("change",()=>{
     const m=(lastData.proj.manual||[]).find(x=>String(x.id)===s.dataset.mstatus); if(m){m.status=s.value;saveCfg();render();}
   }));
@@ -1546,6 +1632,15 @@ if(!isClient()){
     const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
     const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="wiki-tracker-setup.json";a.click();URL.revokeObjectURL(a.href);});
   $("mImport").addEventListener("click",()=>{ closeMenu(); $("importFile").click(); });
+  $("mFlags").addEventListener("click",()=>{
+    closeMenu();
+    const cfg=flagCfg();
+    $("fcDecide").checked=cfg.decide!==false; $("fcReplied").checked=cfg.replied!==false; $("fcWait").checked=cfg.wait!==false;
+    $("flagPanel").hidden=false;
+  });
+  function saveFlagCfg(){ store.set("wrt.flagcfg", JSON.stringify({decide:$("fcDecide").checked,replied:$("fcReplied").checked,wait:$("fcWait").checked})); if(lastData)render(); }
+  ["fcDecide","fcReplied","fcWait"].forEach(id=>{ const el=$(id); if(el) el.addEventListener("change",saveFlagCfg); });
+  { const fd=$("flagDone"); if(fd) fd.addEventListener("click",()=>{ $("flagPanel").hidden=true; }); }
   function closeMenu(){ const d=$("menuDrop"); if(d){ d.hidden=true; $("menuBtn").setAttribute("aria-expanded","false"); } }
   $("menuBtn").addEventListener("click",e=>{ e.stopPropagation(); const d=$("menuDrop"); const show=d.hidden; d.hidden=!show; $("menuBtn").setAttribute("aria-expanded",String(show)); });
   document.addEventListener("click",e=>{ const w=$("menuWrap"); if(w && !w.contains(e.target)) closeMenu(); });
