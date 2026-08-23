@@ -22,7 +22,7 @@ const INTERNAL_USER = process.env.INTERNAL_USER || "";
 const INTERNAL_PASS = process.env.INTERNAL_PASS || "";
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || "";
 const AI_MODEL = process.env.AI_MODEL || "claude-haiku-4-5-20251001";
-const AI_PROMPT_VERSION = "v1";  // bump to invalidate cached AI reads after a prompt change
+const AI_PROMPT_VERSION = "v2";  // bump to invalidate cached AI reads after a prompt change
 const AI_API_URL = process.env.AI_API_URL || "https://api.anthropic.com/v1/messages";
 
 const INDEX_HTML = fs.readFileSync(path.join(__dirname, "public", "index.html"), "utf8");
@@ -145,6 +145,10 @@ async function buildBaked(projectName) {
   const baked = { client: true, ts: new Date().toISOString(), project: projClone, notes: {}, statuses: {} };
   baked.notes = await db.getPrefix("wrt.note::" + projectName + "::");
   baked.statuses = await db.getPrefix("wrt.status::" + projectName + "::");
+  const aiPrefix = "sys.aithread::" + projectName + "::";
+  const aiRows = await db.getPrefix(aiPrefix);
+  baked.ai = {};
+  Object.keys(aiRows).forEach(k => { try { baked.ai[k.slice(aiPrefix.length)] = JSON.parse(aiRows[k]); } catch (e) {} });
   return baked;
 }
 
@@ -182,6 +186,9 @@ const AI_SYSTEM =
   "  summary: ONE plain sentence (max 22 words) describing the CURRENT state of the discussion, i.e. what has " +
   "happened most recently, not a restatement of the request title. Refer to any of the agency's own accounts as " +
   "'Beutler'. Refer to other participants by their role ('an editor') or their username. Do not use first person.\n" +
+  "The summary is shown to non-technical clients, so write in plain, natural English. Never include wiki markup, " +
+  "template names or syntax, code, field names, URLs, or empty quotation marks. Describe what is being changed in " +
+  "ordinary words (for example 'update the headquarters location and brand list'), not by quoting the raw request.\n" +
   "Judge partial vs implemented carefully: if an editor did part of the work or agreed to part, use partial.";
 function aiUserMsg(title, body, ours) {
   return "Agency ('our') accounts: " + ((ours && ours.length) ? ours.join(", ") : "(none specified)") +
@@ -305,6 +312,7 @@ app.post("/api/analyze", auth, async (req, res) => {
   if (!ANTHROPIC_API_KEY) return res.json({ enabled: false });
   const items = Array.isArray(req.body && req.body.items) ? req.body.items.slice(0, 40) : [];
   const ours = Array.isArray(req.body && req.body.ours) ? req.body.ours : [];
+  const project = String((req.body && req.body.project) || "");
   const force = !!(req.body && req.body.force);
   const results = {};
   // small concurrency limit so we don't hammer the API
@@ -318,13 +326,15 @@ app.post("/api/analyze", auth, async (req, res) => {
       const hash = aiHash(title, body, ours);
       const cacheKey = "sys.ai::" + hash;
       try {
-        if (!force) {
-          const cached = await db.get(cacheKey);
-          if (cached) { results[it.id] = JSON.parse(cached); continue; }
+        let rec = null;
+        if (!force) { const cached = await db.get(cacheKey); if (cached) rec = JSON.parse(cached); }
+        if (!rec) { rec = await analyzeThread(title, body, ours); await db.setMany([{ k: cacheKey, v: JSON.stringify(rec) }]); }
+        results[it.id] = rec;
+        // also store keyed by thread so client links (which have no AI access) can reuse it
+        if (project) {
+          const hideKey = it.id.replace(/^w:/, "");
+          await db.setMany([{ k: "sys.aithread::" + project + "::" + hideKey, v: JSON.stringify(rec) }]);
         }
-        const out = await analyzeThread(title, body, ours);
-        await db.setMany([{ k: cacheKey, v: JSON.stringify(out) }]);
-        results[it.id] = out;
       } catch (e) {
         console.error("analyze error:", e.message);
         results[it.id] = { error: true };
