@@ -146,6 +146,9 @@ async function buildBaked(projectName) {
   baked.notes = await db.getPrefix("wrt.note::" + projectName + "::");
   baked.statuses = await db.getPrefix("wrt.status::" + projectName + "::");
   baked.resolved = await db.getPrefix("wrt.resolved::" + projectName + "::");
+  baked.groups = await db.getPrefix("wrt.group::" + projectName + "::");
+  const ord = await db.get("wrt.order::" + projectName); if (ord !== null) baked.order = ord;
+  const hid = await db.get("wrt.hidden::" + projectName); if (hid !== null) baked.hidden = hid;
   const aiPrefix = "sys.aithread::" + projectName + "::";
   const aiRows = await db.getPrefix(aiPrefix);
   baked.ai = {};

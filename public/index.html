@@ -244,6 +244,7 @@
   .cbtn:hover{color:var(--accent)}
   .tpanel{padding:8px 18px 16px;border-bottom:1px solid var(--line);background:var(--surface-alt)}
   .d-analysis{font-size:13px;color:var(--ink);line-height:1.5;margin:2px 0 10px}
+  .d-meta{font-family:var(--label);font-size:12px;color:var(--muted);margin:-4px 0 10px}
   .d-links{font-size:12px;margin-bottom:10px;display:flex;flex-wrap:wrap;gap:6px 14px}
   .d-links a{font-family:var(--mono)}
   .p-hint{font-size:11.5px;color:var(--muted);margin-bottom:8px}
@@ -515,6 +516,8 @@ Draft:Some draft article"></textarea>
             </select>
           </label>
           <label id="showHiddenWrap" class="internalOnly" style="display:none"><input type="checkbox" id="showHidden"> show hidden (<span id="hiddenCount">0</span>)</label>
+          <button class="ghost small" id="expandAllBtn" type="button" title="Expand every request">Expand all</button>
+          <button class="ghost small" id="collapseAllBtn" type="button" title="Collapse every request">Collapse all</button>
           <button class="ghost small internalOnly" id="reReadBtn" type="button" title="Have the AI re-read every discussion.">Re-read discussions</button>
           <button class="ghost small internalOnly" id="addBtn" type="button">+ Add upcoming request</button>
         </span>
@@ -687,6 +690,9 @@ function loadCfg(){
     if(BAKED.notes) Object.keys(BAKED.notes).forEach(k=>store.set(k,BAKED.notes[k]));
     if(BAKED.statuses) Object.keys(BAKED.statuses).forEach(k=>store.set(k,BAKED.statuses[k]));
     if(BAKED.resolved) Object.keys(BAKED.resolved).forEach(k=>store.set(k,BAKED.resolved[k]));
+    if(BAKED.groups) Object.keys(BAKED.groups).forEach(k=>store.set(k,BAKED.groups[k]));
+    if(BAKED.order!=null) store.set("wrt.order::"+BAKED.project.name, BAKED.order);
+    if(BAKED.hidden!=null) store.set("wrt.hidden::"+BAKED.project.name, BAKED.hidden);
     if(BAKED.ai) Object.keys(BAKED.ai).forEach(hk=>{ const a=BAKED.ai[hk]; if(a) aiResults["w:"+hk]={status:a.status,summary:a.summary,sig:null}; });
     return;
   }
@@ -1271,8 +1277,8 @@ function rowHTML(it, client, dragOn, hiddenRow){
   let age="";
   const OPEN_AGE={awaiting:1,posted:1,replied:1};
   if(it.kind==="wiki" && it.ours!==false && OPEN_AGE[it.status] && it.first){
-    const d=daysAgo(it.first);
-    if(d!==null){ const cls=d>30?"age-old":(d>=14?"age-mid":"age-new"); age='<span class="age '+cls+'" title="'+d+' days in queue">'+d+'d</span>'; }
+    const d=daysAgo(it.latest);
+    if(d!==null){ const cls=d>30?"age-old":(d>=14?"age-mid":"age-new"); age='<span class="age '+cls+'" title="'+d+' days since last activity">'+d+'d</span>'; }
   }
   const where=(it.grouped&&it.locations)?'<span class="src loc">'+it.locations.length+' places</span>':'<span class="src">'+esc(it.label)+'</span>';
   const upd=it.latest?shortDate(it.latest):(it.kind==="manual"?"\u2014":"");
@@ -1306,6 +1312,10 @@ function detailHTML(it, client, hiddenRow){
   const done=(it.status==="implemented"||it.status==="declined"||it.resolved);
   const analysis=(it.ai && it.ai.summary) ? it.ai.summary : analysisText(it);
   let bits='<div class="d-analysis">'+esc(analysis)+'</div>';
+  if(it.kind==="wiki"){
+    const opened=daysAgo(it.first), idle=daysAgo(it.latest);
+    if(opened!==null) bits+='<div class="d-meta">Open '+opened+' day'+(opened===1?"":"s")+(idle!==null?' \u00b7 last activity '+idle+' day'+(idle===1?"":"s")+' ago':'')+'.</div>';
+  }
   if(!client && it.kind==="wiki" && it.override && it.override!==it.auto)
     bits+='<div class="p-hint">Set manually. The page currently reads: '+esc(STATUS[it.auto]?STATUS[it.auto].label:it.auto)+'.</div>';
   const links=[];
@@ -1445,7 +1455,7 @@ function render(){
   const dragOn=!client && mode==="custom";
 
   const list=$("reqList"); list.innerHTML="";
-  const theadHTML='<div class="thead"><span>Request</span><span>Where</span><span>Status</span><span>Age</span><span>Last activity</span><span></span></div>';
+  const theadHTML='<div class="thead"><span>Request</span><span>Where</span><span>Status</span><span>Idle</span><span>Last activity</span><span></span></div>';
   function sectionRows(title, sub, cls, arr){
     if(!arr.length) return;
     const wrap=document.createElement("div"); wrap.className="req-section "+cls;
@@ -1685,6 +1695,8 @@ if(!isClient()){
   $("acTitle").addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); acSubmit(); } });
   $("acCancel").addEventListener("click",()=>{ $("addComposer").hidden=true; });
   { const rb=$("reReadBtn"); if(rb) rb.addEventListener("click",()=>analyzeThreads(true)); }
+  { const ea=$("expandAllBtn"); if(ea) ea.addEventListener("click",()=>{ document.querySelectorAll("[data-expand]").forEach(el=>expandedSet.add(el.getAttribute("data-expand"))); render(); }); }
+  { const ca=$("collapseAllBtn"); if(ca) ca.addEventListener("click",()=>{ expandedSet.clear(); render(); }); }
   $("clientFileBtn").addEventListener("click",exportClientFile);
   if(store.remote){ const cl=$("clientLinkBtn"); if(cl){ cl.hidden=false; cl.addEventListener("click",copyClientLink); } }
 }
