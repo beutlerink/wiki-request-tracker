@@ -22,7 +22,7 @@ const INTERNAL_USER = process.env.INTERNAL_USER || "";
 const INTERNAL_PASS = process.env.INTERNAL_PASS || "";
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || "";
 const AI_MODEL = process.env.AI_MODEL || "claude-haiku-4-5-20251001";
-const AI_PROMPT_VERSION = "v2";  // bump to invalidate cached AI reads after a prompt change
+const AI_PROMPT_VERSION = "v3";  // bump to invalidate cached AI reads after a prompt change
 const AI_API_URL = process.env.AI_API_URL || "https://api.anthropic.com/v1/messages";
 
 const INDEX_HTML = fs.readFileSync(path.join(__dirname, "public", "index.html"), "utf8");
@@ -181,8 +181,11 @@ const AI_SYSTEM =
   "conflict-of-interest edit requests on behalf of clients. You will be given the discussion wikitext and the list " +
   "of usernames that belong to the agency ('our accounts'). Return ONLY a JSON object, no prose, no code fences, with keys:\n" +
   "  status: one of awaiting | replied | partial | implemented | declined | monitored\n" +
-  "    - awaiting: the request was posted but no independent editor has responded yet\n" +
-  "    - replied: an independent editor has responded and discussion is ongoing, no resolution yet\n" +
+  "    - awaiting: the request is waiting on an independent editor to act. This INCLUDES the case where an editor " +
+  "asked a question or requested changes and Beutler has already answered or resubmitted, so the ball is back in " +
+  "the editor's court and no independent editor has yet accepted or rejected the latest version.\n" +
+  "    - replied: an independent editor's comment is the MOST RECENT substantive message and it is now Beutler's " +
+  "turn to respond (the ball is in Beutler's court). If Beutler has already responded after the editor, use awaiting, not replied.\n" +
   "    - partial: some of the requested changes were made or accepted, but not all\n" +
   "    - implemented: all requested changes were made/accepted\n" +
   "    - declined: the request was rejected or closed without the changes\n" +

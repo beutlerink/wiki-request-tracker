@@ -159,7 +159,9 @@
   .reqgroup .req{background:transparent}
   .comments{margin-top:8px;display:flex;flex-direction:column;gap:6px}
   .comment{background:#f8fafc;border-left:3px solid var(--line-strong);border-radius:0 7px 7px 0;padding:7px 10px;font-size:13.5px;color:var(--ink);margin-left:2px;display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
-  .comment .cmt-text{flex:1;white-space:pre-wrap;overflow-wrap:anywhere}
+  .comment .cmt-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+  .comment .cmt-text{white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word}
+  .comment .cmt-date{font-family:var(--label);font-size:11px;color:var(--muted)}
   .comment .cmt-actions{white-space:nowrap;flex:none}
   .clink{background:none;border:none;color:var(--accent);font:inherit;font-size:12px;font-weight:600;cursor:pointer;padding:0 3px}
   .clink:hover{text-decoration:underline}
@@ -1206,6 +1208,7 @@ function getOrder(proj){ try{return JSON.parse(store.get("wrt.order::"+proj.name
 function setOrder(proj,arr){ store.set("wrt.order::"+proj.name, JSON.stringify(arr)); }
 function genId(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
 function commentKeyFor(it){ return it.kind==="wiki" ? ("w:"+it.noteKey) : ("m:"+it.id); }
+function fmtCmtDate(ts){ try{ return new Date(ts).toLocaleString(undefined,{month:"short",day:"numeric",year:"numeric",hour:"numeric",minute:"2-digit"}); }catch(e){ return ""; } }
 function getComments(it){
   if(it.kind==="manual"){
     if(Array.isArray(it.item.comments)) return it.item.comments;
@@ -1372,7 +1375,8 @@ function detailHTML(it, client, hiddenRow){
           '<button class="clink" data-savecmt="'+esc(c.id)+'" data-cmtkey="'+esc(ck)+'" type="button">save</button>'+
           '<button class="clink" data-cancelcmt="1" type="button">cancel</button></div>';
       }else{
-        rows+='<div class="comment"><span class="cmt-text">'+esc(c.text)+'</span>'+
+        rows+='<div class="comment"><div class="cmt-main"><span class="cmt-text">'+esc(c.text)+'</span>'+
+          (c.ts?'<span class="cmt-date">'+esc(fmtCmtDate(c.ts))+'</span>':'')+'</div>'+
           (client?'':'<span class="cmt-actions"><button class="clink" data-editcmt="'+esc(c.id)+'" type="button">edit</button><button class="clink" data-delcmt="'+esc(c.id)+'" data-cmtkey="'+esc(ck)+'" type="button">delete</button></span>')+
           '</div>';
       }
@@ -1562,7 +1566,7 @@ function wireRequestControls(dragOn){
   function addComment(key, val){
     const t=(val||"").trim(); if(!t) return;
     const target=commentTargets[key]; if(!target) return;
-    const arr=getComments(target).slice(); arr.push({id:genId(),text:t}); setComments(target,arr); editingComment=null; render();
+    const arr=getComments(target).slice(); arr.push({id:genId(),text:t,ts:Date.now()}); setComments(target,arr); editingComment=null; render();
   }
   list.querySelectorAll("input[data-addkey]").forEach(inp=>inp.addEventListener("keydown",e=>{
     if(e.key==="Enter"){ e.preventDefault(); addComment(inp.dataset.addkey, inp.value); }
@@ -1576,7 +1580,7 @@ function wireRequestControls(dragOn){
     const target=commentTargets[b.dataset.cmtkey], id=b.dataset.savecmt; if(!target) return;
     const inp=b.parentElement.querySelector("input[data-editid]"); const val=inp?inp.value.trim():"";
     let arr=getComments(target).slice();
-    if(!val){ arr=arr.filter(c=>String(c.id)!==String(id)); } else { arr=arr.map(c=>String(c.id)===String(id)?{id:c.id,text:val}:c); }
+    if(!val){ arr=arr.filter(c=>String(c.id)!==String(id)); } else { arr=arr.map(c=>String(c.id)===String(id)?{id:c.id,text:val,ts:c.ts}:c); }
     setComments(target,arr); editingComment=null; render();
   }));
   list.querySelectorAll("input[data-editid]").forEach(inp=>inp.addEventListener("keydown",e=>{
