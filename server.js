@@ -104,8 +104,12 @@ async function initDb() {
 /* ---------- app-state helpers ---------- */
 // App state lives under the "wrt." prefix. "wrt.current.v2" is a per-browser UI
 // preference and is intentionally not shared. "sys." keys are server-only.
-const CURRENT_KEY = "wrt.current.v2";
-function isAppKey(k) { return k.indexOf("wrt.") === 0 && k !== CURRENT_KEY; }
+// Keys the app keeps strictly per-browser (via localStorage) and never syncs to
+// the team. Mirrors the client's own LOCAL_ONLY set; kept out of the shared
+// snapshot so one person's local UI state (last project, last filter, last
+// comment-signature pick) never leaks into what the team sees.
+const LOCAL_ONLY_KEYS = new Set(["wrt.current.v2", "wrt.whoami", "wrt.ownerfilter"]);
+function isAppKey(k) { return k.indexOf("wrt.") === 0 && !LOCAL_ONLY_KEYS.has(k); }
 
 async function appSnapshot() {
   const all = await db.getPrefix("wrt.");

@@ -84,8 +84,13 @@
     color:var(--muted);font-weight:600}
   .mfield .help{font-size:11.5px;color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0}
   .ag-clear{font:inherit;font-family:var(--label);font-size:11.5px;font-weight:600;color:var(--accent);
-    background:none;border:none;cursor:pointer;padding:0;margin-left:8px;text-decoration:underline;text-transform:none;letter-spacing:0}
-  .ag-clear:hover{color:var(--ink)}
+    appearance:none;-webkit-appearance:none;background:none;border:none;cursor:pointer;padding:0;margin-left:8px;
+    text-decoration:underline;text-transform:none;letter-spacing:0}
+  .ag-clear:hover,.ag-clear:active,.ag-clear:focus{background:none;color:var(--ink)}
+  .tb-field{display:flex;flex-direction:column;gap:2px}
+  .tb-field .tb-label{font-family:var(--label);font-size:10px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--muted);font-weight:600}
+  .tb-field select{display:block}
   .manage input,.manage textarea,.manage select{font:inherit;padding:8px 10px;border:1px solid var(--line-strong);
     border-radius:7px;background:#fbfcfd;color:var(--ink);width:100%}
   .manage select{appearance:none;-webkit-appearance:none;padding-right:30px;cursor:pointer;
@@ -433,8 +438,6 @@
     <div class="menu-wrap internalOnly" id="menuWrap">
       <button class="ghost" id="menuBtn" type="button" aria-haspopup="true" aria-expanded="false" title="Menu">&#9776;</button>
       <div class="menu-drop" id="menuDrop" hidden>
-        <button class="menu-item" id="mNewProj" type="button">+ New project</button>
-        <div class="menu-sep"></div>
         <button class="menu-item" id="mFlags" type="button">Flag settings</button>
         <button class="menu-item" id="mTeam" type="button">Team members</button>
         <div class="menu-sep"></div>
@@ -442,11 +445,17 @@
         <button class="menu-item" id="mImport" type="button">Import setup</button>
       </div>
     </div>
-    <select id="ownerFilter" class="internalOnly" aria-label="Filter projects by owner" hidden></select>
-    <select id="projSelect" class="internalOnly" aria-label="Choose project"></select>
+    <div class="tb-field internalOnly" id="ownerFieldWrap" hidden>
+      <label class="tb-label" for="ownerFilter">Owner</label>
+      <select id="ownerFilter" aria-label="Filter projects by owner"></select>
+    </div>
+    <div class="tb-field internalOnly">
+      <label class="tb-label" for="projSelect">Project</label>
+      <select id="projSelect" aria-label="Choose project"></select>
+    </div>
+    <button class="ghost internalOnly" id="newProjBtn" type="button" title="Add a new project">+ New project</button>
     <button class="ghost internalOnly" id="manageBtn" type="button">Project settings</button>
     <button class="ghost internalOnly" id="previewBtn" type="button">Preview client view</button>
-    <button id="refreshBtn" type="button">Refresh</button>
     <button class="internalOnly" id="saveNowBtn" type="button" hidden>Save</button>
     <span class="savepill internalOnly" id="saveState" hidden></span>
     <span class="synced" id="synced"></span>
@@ -561,7 +570,7 @@ Draft:Some draft article"></textarea>
           <label id="showHiddenWrap" class="internalOnly" style="display:none"><input type="checkbox" id="showHidden"> show hidden (<span id="hiddenCount">0</span>)</label>
           <button class="ghost small" id="expandAllBtn" type="button" title="Expand every request">Expand all</button>
           <button class="ghost small" id="collapseAllBtn" type="button" title="Collapse every request">Collapse all</button>
-          <button class="ghost small internalOnly" id="reReadBtn" type="button" title="Force every discussion to be re-read, ignoring the cache. Refresh alone already re-reads anything that changed.">Re-read discussions</button>
+          <button class="ghost small internalOnly" id="reReadBtn" type="button" title="Force every discussion to be re-read, ignoring the cache. Reloading the page already re-reads anything that changed.">Re-read discussions</button>
           <button class="ghost small internalOnly" id="addBtn" type="button">+ Add upcoming request</button>
         </span>
       </h2>
@@ -1058,9 +1067,10 @@ function fetchUserContribs(user){
 
 async function loadProject(){
   const proj=projects[current]; if(!proj)return;
+  { const mb=$("manageBtn"),pb=$("previewBtn"); if(mb)mb.disabled=false; if(pb)pb.disabled=false; }
   renderHeader(proj);
   $("msg").innerHTML='<div class="panel"><div class="state"><span class="spin"></span>Reading '+(proj.sources||[]).length+' page(s)&hellip;</div></div>';
-  $("stats").hidden=true; $("grid").hidden=true; $("refreshBtn").disabled=true;
+  $("stats").hidden=true; $("grid").hidden=true;
 
   const start=proj.start?new Date(proj.start+"T00:00:00Z"):null;
   const teamUsers=effectiveUsers(proj);
@@ -1118,13 +1128,12 @@ async function loadProject(){
       (blocked?'<div class="hint">If this is running inside a preview, the sandbox may be blocking the connection. Download this file and open it directly in your browser and it will work.</div>'
               :'<div class="hint">Check each page title, including its prefix (Talk:, User talk:, Wikipedia talk:, Draft:).</div>')+
       '</div></div>';
-    $("refreshBtn").disabled=false; return;
+    return;
   }
 
   lastData={proj,requests,activity,edCounts,teamSet,errors,moves};
   render();
   $("synced").textContent="Updated "+new Date().toLocaleString()+" \u00b7 build "+BUILD_TAG;
-  $("refreshBtn").disabled=false;
   analyzeThreads(false);   // AI reads the discussions, then re-renders with real statuses + summaries
 }
 
@@ -1165,7 +1174,7 @@ function updateReadBtn(state){
   if(!_aiEnabled){ b.textContent="AI reading off"; b.disabled=true; b.title="Add an ANTHROPIC_API_KEY in Render to turn on AI reading of discussions."; return; }
   b.disabled=(state==="working");
   b.textContent=(state==="working")?"Reading\u2026":"Re-read discussions";
-  b.title="Refresh already re-reads any discussion whose content changed. This forces every discussion to be re-read, ignoring what's cached \u2014 useful right after I've improved how the AI reads discussions.";
+  b.title="Reloading the page already re-reads any discussion whose content changed. This forces every discussion to be re-read, ignoring what's cached \u2014 useful after an update changes how discussions are read.";
 }
 
 function buildItems(){
@@ -1715,10 +1724,10 @@ function projectOwnerMatches(p, filterVal){
   return owner===filterVal;
 }
 function populateOwnerFilter(){
-  const sel=$("ownerFilter"); if(!sel) return;
+  const sel=$("ownerFilter"), wrap=$("ownerFieldWrap"); if(!sel) return;
   const roster=getRoster();
-  if(!store.remote || !roster.length){ sel.hidden=true; return; }
-  sel.hidden=false;
+  if(!store.remote || !roster.length){ if(wrap)wrap.hidden=true; return; }
+  if(wrap)wrap.hidden=false;
   const cur=store.get("wrt.ownerfilter")||"all";
   sel.innerHTML=['<option value="all">All projects</option>','<option value="unassigned">Unassigned</option>']
     .concat(roster.map(n=>'<option value="'+esc(n)+'">'+esc(n)+'</option>'))
@@ -1728,14 +1737,35 @@ function populateOwnerFilter(){
 function refreshTeamUI(){ populateOwnerFilter(); }
 /* re-picks the project list for the active owner filter; if the project you're on falls
    outside it, jumps to the first one that still matches (or leaves you put if none do) */
-function applyOwnerFilterAndReload(){
+/* ensures `current` points at a project the active owner filter allows;
+   if none do, returns false so the caller can show an empty state instead
+   of leaving stale data from whatever project was showing before */
+function syncCurrentToFilter(){
   const filterVal=store.get("wrt.ownerfilter")||"all";
-  const stillVisible=projectOwnerMatches(projects[current], filterVal);
+  if(projectOwnerMatches(projects[current], filterVal)) return true;
+  const idx=projects.findIndex(p=>projectOwnerMatches(p,filterVal));
+  if(idx>=0){ current=idx; saveCfg(); return true; }
+  return false;
+}
+function showNoProjectsState(){
+  lastData=null;
+  document.title="Request Tracker";
+  const pn=$("projName"); if(pn) pn.textContent="No projects match this filter";
+  const w=$("watching"); if(w) w.innerHTML="";
+  const dEl=$("projDesc"); if(dEl) dEl.hidden=true;
+  $("stats").hidden=true; $("grid").hidden=true;
+  $("msg").innerHTML='<div class="panel"><div class="state"><strong>No projects match this filter</strong>'+
+    '<div class="hint">Pick a different owner above, or add a new project.</div></div></div>';
+  const sy=$("synced"); if(sy) sy.textContent="";
+  const mb=$("manageBtn"),pb=$("previewBtn"); if(mb)mb.disabled=true; if(pb)pb.disabled=true;
+}
+/* re-picks the project list for the active owner filter, loading a matching project
+   (or showing an empty state if none match) rather than leaving stale data on screen */
+function applyOwnerFilterAndReload(){
+  const ok=syncCurrentToFilter();
   renderSelector();
-  if(!stillVisible){
-    const idx=projects.findIndex(p=>projectOwnerMatches(p,filterVal));
-    if(idx>=0){ current=idx; saveCfg(); if(!$("managePanel").hidden) fillForm(); loadProject(); }
-  }
+  if(ok){ if(!$("managePanel").hidden) fillForm(); loadProject(); }
+  else showNoProjectsState();
 }
 function renderSelector(){
   const sel=$("projSelect"); sel.innerHTML="";
@@ -1798,8 +1828,7 @@ if(!isClient()){
   $("saveBtn").addEventListener("click",()=>{projects[current]=readForm();saveCfg();renderSelector();$("managePanel").hidden=true;loadProject();});
   $("doneBtn").addEventListener("click",()=>{$("managePanel").hidden=true;});
   $("closeBtn").addEventListener("click",()=>{$("managePanel").hidden=true;});
-  $("mNewProj").addEventListener("click",()=>{
-    closeMenu();
+  $("newProjBtn").addEventListener("click",()=>{
     projects.push({name:"New project",start:"",owner:store.get("wrt.whoami")||"",team:"",agency:AGENCY_ROSTER.slice(),sources:[],manual:[]});
     current=projects.length-1; saveCfg(); renderSelector();
     $("managePanel").hidden=false; fillForm(); $("fName").focus(); $("fName").select();
@@ -1807,7 +1836,11 @@ if(!isClient()){
   $("deleteBtn").addEventListener("click",()=>{
     if(projects.length<=1){alert("Keep at least one project. Edit this one instead.");return;}
     if(!confirm("Delete \""+(projects[current].name||"this project")+"\"?"))return;
-    projects.splice(current,1);current=0;saveCfg();renderSelector();fillForm();loadProject();});
+    projects.splice(current,1);current=0;saveCfg();
+    const ok=syncCurrentToFilter();
+    renderSelector();fillForm();
+    if(ok) loadProject(); else showNoProjectsState();
+  });
   $("mExport").addEventListener("click",()=>{
     closeMenu();
     const payload={version:4, projects:projects};
@@ -1857,7 +1890,10 @@ if(!isClient()){
       const legacyG = (parsed && !Array.isArray(parsed) && typeof parsed.agencyUsers==="string") ? parsed.agencyUsers : null;
       const seed = legacyG===null ? AGENCY_ROSTER.slice() : AGENCY_ROSTER.filter(r=>parseUsers(legacyG).some(u=>u.toLowerCase()===r.toLowerCase()));
       arr.forEach(p=>{if(!Array.isArray(p.manual))p.manual=[]; if(!Array.isArray(p.agency))p.agency=seed.slice();});
-      projects=arr;current=0;saveCfg();renderSelector();fillForm();loadProject();
+      projects=arr;current=0;saveCfg();
+      const ok=syncCurrentToFilter();
+      renderSelector();fillForm();
+      if(ok) loadProject(); else showNoProjectsState();
       alert("Imported "+arr.length+" project(s).");
     }catch(err){alert("That file didn't look like a valid setup export.");}};
     r.readAsText(f);});
@@ -1947,7 +1983,10 @@ function startSync(){
       const projBefore=store.get("wrt.projects.v2");
       _lastSnap=j; store.hydrate(snap);
       refreshTeamUI();
-      if(store.get("wrt.projects.v2")!==projBefore){ loadCfg(); renderSelector(); loadProject(); }
+      if(store.get("wrt.projects.v2")!==projBefore){
+        loadCfg();
+        if(syncCurrentToFilter()){ renderSelector(); loadProject(); } else { renderSelector(); showNoProjectsState(); }
+      }
       else if(lastData){ render(); }
     }catch(e){}
   }, 12000);
@@ -1985,7 +2024,6 @@ function exportClientFile(){
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=safe+"-status.html";a.click();URL.revokeObjectURL(a.href);
 }
 
-$("refreshBtn").addEventListener("click",loadProject);
 $("reqTabs").addEventListener("click",e=>{const b=e.target.closest(".tab");if(b){curFilter=b.dataset.tab;if(lastData)render();}});
 $("showHidden").addEventListener("change",()=>{if(lastData)render();});
 $("sortSel").addEventListener("change",()=>{if(lastData)render();});
@@ -2030,7 +2068,8 @@ async function internalBoot(fromSaved){
     store.hydrate(snap);
     hideLogin();
     const sb=$("saveNowBtn"); if(sb){ sb.hidden=false; }
-    loadCfg(); renderSelector(); refreshTeamUI(); checkPersistence(); saveIndicator("ok"); startSync(); loadProject();
+    loadCfg(); refreshTeamUI(); checkPersistence(); saveIndicator("ok"); startSync();
+    if(syncCurrentToFilter()){ renderSelector(); loadProject(); } else { renderSelector(); showNoProjectsState(); }
   }catch(e){
     const aborted=e&&e.name==="AbortError";
     showLogin(aborted?"The server didn\u2019t respond in time. It may be waking up. Try Sign in again."
