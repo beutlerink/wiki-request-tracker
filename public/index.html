@@ -83,8 +83,14 @@
   .mfield label{font-size:11px;letter-spacing:.05em;text-transform:uppercase;
     color:var(--muted);font-weight:600}
   .mfield .help{font-size:11.5px;color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0}
-  .manage input,.manage textarea{font:inherit;padding:8px 10px;border:1px solid var(--line-strong);
+  .ag-clear{font:inherit;font-family:var(--label);font-size:11.5px;font-weight:600;color:var(--accent);
+    background:none;border:none;cursor:pointer;padding:0;margin-left:8px;text-decoration:underline;text-transform:none;letter-spacing:0}
+  .ag-clear:hover{color:var(--ink)}
+  .manage input,.manage textarea,.manage select{font:inherit;padding:8px 10px;border:1px solid var(--line-strong);
     border-radius:7px;background:#fbfcfd;color:var(--ink);width:100%}
+  .manage select{appearance:none;-webkit-appearance:none;padding-right:30px;cursor:pointer;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%238a8175'><path d='M5.5 7.5l4.5 5 4.5-5z'/></svg>");
+    background-repeat:no-repeat;background-position:right 9px center;background-size:16px}
   .manage textarea{min-height:96px;font-size:13.5px;line-height:1.6;resize:vertical}
   .manage .mono{font-family:var(--mono);font-size:13px}
   .agency-checks{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;padding:6px 0 2px}
@@ -115,7 +121,7 @@
   #loginBtn{width:100%;font:inherit;font-weight:600;font-size:15px;color:#fff;background:var(--accent,#EA503B);
     border:none;border-radius:9px;padding:11px;cursor:pointer}
   #loginBtn:hover{filter:brightness(.96)}
-  .manage input:focus-visible,.manage textarea:focus-visible{outline:2px solid var(--accent);
+  .manage input:focus-visible,.manage textarea:focus-visible,.manage select:focus-visible{outline:2px solid var(--accent);
     outline-offset:1px;border-color:var(--accent)}
   .mactions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:4px}
   .mactions .spacer{flex:1}
@@ -478,7 +484,8 @@
     </div>
     <div class="mrow">
       <div class="mfield grow" style="flex-basis:100%">
-        <label>Agency usernames <span class="help">check the Beutler accounts working on this project</span></label>
+        <label>Agency usernames <span class="help">check the Beutler accounts working on this project</span>
+          <button type="button" id="agNoneBtn" class="ag-clear">select none</button></label>
         <div class="agency-checks" id="fAgency"></div>
       </div>
     </div>
@@ -1459,7 +1466,7 @@ function detailHTML(it, client, hiddenRow){
           '<button class="clink" data-cancelcmt="1" type="button">cancel</button></div>';
       }else{
         rows+='<div class="comment"><div class="cmt-main"><span class="cmt-text">'+linkifyComment(c.text)+'</span>'+
-          (c.ts?'<span class="cmt-date">'+esc(fmtCmtDate(c.ts))+'</span>':'')+'</div>'+
+          (c.ts?'<span class="cmt-date">'+((c.by&&!client)?esc(c.by)+" \u00b7 ":"")+esc(fmtCmtDate(c.ts))+'</span>':'')+'</div>'+
           (client?'':'<span class="cmt-actions"><button class="clink" data-editcmt="'+esc(c.id)+'" type="button">edit</button><button class="clink" data-delcmt="'+esc(c.id)+'" data-cmtkey="'+esc(ck)+'" type="button">delete</button></span>')+
           '</div>';
       }
@@ -1658,7 +1665,7 @@ function wireRequestControls(dragOn){
   function addComment(key, val){
     const t=(val||"").trim(); if(!t) return;
     const target=commentTargets[key]; if(!target) return;
-    const arr=getComments(target).slice(); arr.push({id:genId(),text:t,ts:Date.now()}); setComments(target,arr); editingComment=null; render();
+    const arr=getComments(target).slice(); arr.push({id:genId(),text:t,ts:Date.now(),by:store.get("wrt.whoami")||""}); setComments(target,arr); editingComment=null; render();
   }
   list.querySelectorAll("input[data-addkey]").forEach(inp=>inp.addEventListener("keydown",e=>{
     if(e.key==="Enter"){ e.preventDefault(); addComment(inp.dataset.addkey, inp.value); }
@@ -1672,7 +1679,7 @@ function wireRequestControls(dragOn){
     const target=commentTargets[b.dataset.cmtkey], id=b.dataset.savecmt; if(!target) return;
     const inp=b.parentElement.querySelector("input[data-editid]"); const val=inp?inp.value.trim():"";
     let arr=getComments(target).slice();
-    if(!val){ arr=arr.filter(c=>String(c.id)!==String(id)); } else { arr=arr.map(c=>String(c.id)===String(id)?{id:c.id,text:val,ts:c.ts}:c); }
+    if(!val){ arr=arr.filter(c=>String(c.id)!==String(id)); } else { arr=arr.map(c=>String(c.id)===String(id)?{id:c.id,text:val,ts:c.ts,by:c.by}:c); }
     setComments(target,arr); editingComment=null; render();
   }));
   list.querySelectorAll("input[data-editid]").forEach(inp=>inp.addEventListener("keydown",e=>{
@@ -1747,6 +1754,11 @@ function fillOwnerSelect(ownerVal){
   if(ownerVal && !names.includes(ownerVal)) names.push(ownerVal);  // keep a since-removed name visible rather than silently dropping it
   el.innerHTML='<option value="">Unassigned</option>'+names.map(n=>'<option value="'+esc(n)+'"'+(n===ownerVal?" selected":"")+'>'+esc(n)+'</option>').join("");
 }
+function updateAgToggle(){
+  const btn=$("agNoneBtn"); if(!btn) return;
+  const boxes=[...document.querySelectorAll("#fAgency input[type=checkbox]")];
+  btn.textContent = (boxes.length>0 && boxes.every(c=>c.checked)) ? "select none" : "select all";
+}
 function fillForm(){
   const p=projects[current]||{name:"",start:"",team:"",sources:[]};
   $("fName").value=p.name||""; $("fStart").value=p.start||"";
@@ -1756,6 +1768,7 @@ function fillForm(){
   $("fAgency").innerHTML=AGENCY_ROSTER.map(u=>
     '<label class="agchk"><input type="checkbox" data-user="'+esc(u)+'"'+(agSet.has(u.toLowerCase())?" checked":"")+"> "+esc(u)+"</label>"
   ).join("");
+  updateAgToggle();
   $("fPages").value=(p.sources||[]).map(s=>s.title+(s.match?(" | "+s.match):"")).join("\n");
 }
 function readForm(){
@@ -1771,6 +1784,13 @@ function readForm(){
 
 if(!isClient()){
   $("manageBtn").addEventListener("click",()=>{const p=$("managePanel");p.hidden=!p.hidden;if(!p.hidden)fillForm();});
+  { const ag=$("agNoneBtn"); if(ag) ag.addEventListener("click",()=>{
+    const boxes=[...document.querySelectorAll("#fAgency input[type=checkbox]")];
+    const allChecked=boxes.length>0 && boxes.every(c=>c.checked);
+    boxes.forEach(c=>{ c.checked=!allChecked; });
+    updateAgToggle();
+  }); }
+  { const af=$("fAgency"); if(af) af.addEventListener("change", updateAgToggle); }
   $("previewBtn").addEventListener("click",()=>{previewClient=true;$("managePanel").hidden=true;render();renderHeader(projects[current]);
     if(!$("exitPreview")){const b=document.createElement("button");b.id="exitPreview";b.className="ghost";b.textContent="Exit client preview";b.type="button";b.addEventListener("click",()=>{previewClient=false;b.remove();render();renderHeader(projects[current]);});const bar=document.querySelector(".bar");if(bar)bar.appendChild(b);}});
   $("projSelect").addEventListener("change",e=>{current=parseInt(e.target.value,10)||0;saveCfg();if(!$("managePanel").hidden)fillForm();loadProject();});
@@ -1936,14 +1956,23 @@ function startSync(){
   }, 12000);
 }
 
+function stripCommentAuthorsForClient(manual){
+  if(!Array.isArray(manual)) return;
+  manual.forEach(item=>{ if(Array.isArray(item&&item.comments)) item.comments=item.comments.map(c=>{ const {by,...rest}=c||{}; return rest; }); });
+}
 function exportClientFile(){
   const proj=projects[current];
   const projClone=JSON.parse(JSON.stringify(proj));
   projClone.team=effectiveUsers(proj).join("\n"); // fold agency users in so the client file knows them
   delete projClone.agency;  // never ship the roster selection
   delete projClone.owner;   // internal staffing assignment, not for clients
+  stripCommentAuthorsForClient(projClone.manual); // who on our team wrote it is internal, not for clients
   const baked={client:true, ts:new Date().toISOString(), project:projClone, notes:{}, statuses:{}};
-  store.keys("wrt.note::"+proj.name+"::").forEach(k=>baked.notes[k]=store.get(k));
+  store.keys("wrt.note::"+proj.name+"::").forEach(k=>{
+    let v=store.get(k);
+    try{ const arr=JSON.parse(v); if(Array.isArray(arr)) v=JSON.stringify(arr.map(c=>{ const {by,...rest}=c||{}; return rest; })); }catch(e){}
+    baked.notes[k]=v;
+  });
   store.keys("wrt.status::"+proj.name+"::").forEach(k=>baked.statuses[k]=store.get(k));
   const payload=JSON.stringify(baked).replace(/</g,"\\u003c");
   // clone the page and strip anything that could reveal other projects

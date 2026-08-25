@@ -143,8 +143,9 @@ async function buildBaked(projectName) {
   projClone.team = effectiveUsers(proj).join("\n"); // fold agency in so ownership computes
   delete projClone.agency;                          // never ship the roster selection
   delete projClone.owner;                            // internal staffing assignment, not for clients
+  stripCommentAuthors(projClone.manual);             // "who on our team wrote this" is internal, not for clients
   const baked = { client: true, ts: new Date().toISOString(), project: projClone, notes: {}, statuses: {} };
-  baked.notes = await db.getPrefix("wrt.note::" + projectName + "::");
+  baked.notes = scrubNotesAuthors(await db.getPrefix("wrt.note::" + projectName + "::"));
   baked.statuses = await db.getPrefix("wrt.status::" + projectName + "::");
   baked.resolved = await db.getPrefix("wrt.resolved::" + projectName + "::");
   baked.groups = await db.getPrefix("wrt.group::" + projectName + "::");
@@ -155,6 +156,24 @@ async function buildBaked(projectName) {
   baked.ai = {};
   Object.keys(aiRows).forEach(k => { try { baked.ai[k.slice(aiPrefix.length)] = JSON.parse(aiRows[k]); } catch (e) {} });
   return baked;
+}
+// Comments carry an optional "by" (which internal team member wrote it) purely for
+// internal display. Strip it before any client-facing payload leaves the server.
+function stripCommentAuthors(manual) {
+  if (!Array.isArray(manual)) return;
+  manual.forEach(item => {
+    if (Array.isArray(item && item.comments)) item.comments = item.comments.map(c => { const { by, ...rest } = c || {}; return rest; });
+  });
+}
+function scrubNotesAuthors(notes) {
+  const out = {};
+  Object.keys(notes || {}).forEach(k => {
+    try {
+      const arr = JSON.parse(notes[k]);
+      out[k] = Array.isArray(arr) ? JSON.stringify(arr.map(c => { const { by, ...rest } = c || {}; return rest; })) : notes[k];
+    } catch (e) { out[k] = notes[k]; }
+  });
+  return out;
 }
 
 /* ---------- client tokens ---------- */
