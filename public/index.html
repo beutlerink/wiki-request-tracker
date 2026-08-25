@@ -175,6 +175,8 @@
   .comment.editing{background:transparent;border-left-color:var(--accent);flex-direction:row;align-items:center}
   .cmt-edit{flex:1;font:inherit;font-size:13.5px;padding:6px 8px;border:1px solid var(--line-strong);border-radius:6px;background:var(--surface);color:var(--ink)}
   .cmt-add{margin-top:8px;display:flex;gap:6px}
+  .cmt-who{font:inherit;font-size:12.5px;padding:7px 8px;border:1px solid var(--line-strong);border-radius:7px;
+    background:#fbfcfd;color:var(--ink);flex:0 0 auto;max-width:120px}
   .cmt-input{flex:1;font:inherit;font-size:13px;padding:7px 9px;border:1px solid var(--line-strong);border-radius:7px;background:#fbfcfd;color:var(--ink)}
   .cmt-input:focus-visible,.cmt-edit:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 
@@ -441,8 +443,6 @@
       </div>
     </div>
     <select id="ownerFilter" class="internalOnly" aria-label="Filter projects by owner" hidden></select>
-    <span class="autohint internalOnly" id="whoamiLabel" hidden>Working as:</span>
-    <select id="whoamiSelect" class="internalOnly" aria-label="Set who you are, for the 'mine' filter" hidden></select>
     <select id="projSelect" class="internalOnly" aria-label="Choose project"></select>
     <button class="ghost internalOnly" id="manageBtn" type="button">Project settings</button>
     <button class="ghost internalOnly" id="previewBtn" type="button">Preview client view</button>
@@ -1471,7 +1471,12 @@ function detailHTML(it, client, hiddenRow){
           '</div>';
       }
     });
-    const addBox = client ? '' : '<div class="cmt-add"><input class="cmt-input" data-addkey="'+esc(ck)+'" placeholder="Add a comment, press Enter"><button class="clink" data-addbtn="'+esc(ck)+'" type="button">Add</button></div>';
+    const roster=getRoster();
+    const whoSel = (!client && roster.length)
+      ? '<select class="cmt-who" data-whokey="'+esc(ck)+'" title="Who\u2019s adding this?"><option value="">(no name)</option>'+
+        roster.map(n=>'<option value="'+esc(n)+'"'+(n===(store.get("wrt.whoami")||"")?" selected":"")+'>'+esc(n)+'</option>').join("")+'</select>'
+      : '';
+    const addBox = client ? '' : '<div class="cmt-add">'+whoSel+'<input class="cmt-input" data-addkey="'+esc(ck)+'" placeholder="Add a comment, press Enter"><button class="clink" data-addbtn="'+esc(ck)+'" type="button">Add</button></div>';
     noteHtml='<div class="note"><div class="note-lab">'+(client?'Updates':'Comments')+'</div><div class="comments">'+rows+'</div>'+addBox+'</div>';
   }
 
@@ -1662,16 +1667,22 @@ function wireRequestControls(dragOn){
     render();
   }));
   // comments
-  function addComment(key, val){
+  function addComment(key, val, who){
     const t=(val||"").trim(); if(!t) return;
     const target=commentTargets[key]; if(!target) return;
-    const arr=getComments(target).slice(); arr.push({id:genId(),text:t,ts:Date.now(),by:store.get("wrt.whoami")||""}); setComments(target,arr); editingComment=null; render();
+    if(who!==undefined) store.set("wrt.whoami", who||"");   // remember the pick as this browser's default next time
+    const arr=getComments(target).slice(); arr.push({id:genId(),text:t,ts:Date.now(),by:who||""}); setComments(target,arr); editingComment=null; render();
   }
   list.querySelectorAll("input[data-addkey]").forEach(inp=>inp.addEventListener("keydown",e=>{
-    if(e.key==="Enter"){ e.preventDefault(); addComment(inp.dataset.addkey, inp.value); }
+    if(e.key==="Enter"){ e.preventDefault();
+      const who=inp.parentElement.querySelector(".cmt-who");
+      addComment(inp.dataset.addkey, inp.value, who?who.value:undefined);
+    }
   }));
   list.querySelectorAll("button[data-addbtn]").forEach(b=>b.addEventListener("click",()=>{
-    const inp=b.parentElement.querySelector("input[data-addkey]"); if(inp) addComment(inp.dataset.addkey, inp.value);
+    const inp=b.parentElement.querySelector("input[data-addkey]"); if(!inp) return;
+    const who=b.parentElement.querySelector(".cmt-who");
+    addComment(inp.dataset.addkey, inp.value, who?who.value:undefined);
   }));
   list.querySelectorAll("button[data-editcmt]").forEach(b=>b.addEventListener("click",()=>{ editingComment=b.dataset.editcmt; render(); }));
   list.querySelectorAll("button[data-cancelcmt]").forEach(b=>b.addEventListener("click",()=>{ editingComment=null; render(); }));
@@ -1697,21 +1708,11 @@ function wireRequestControls(dragOn){
 /* ---------- team roster (shared) + personal identity/filter (per-browser) ---------- */
 function getRoster(){ try{ const a=JSON.parse(store.get("wrt.roster")||"[]"); return Array.isArray(a)?a.filter(Boolean):[]; }catch(e){ return []; } }
 function setRoster(arr){ store.set("wrt.roster", JSON.stringify(arr)); }
-function projectOwnerMatches(p, filterVal, whoami){
+function projectOwnerMatches(p, filterVal){
   const owner=(p&&p.owner||"").trim();
   if(!filterVal || filterVal==="all") return true;
-  if(filterVal==="mine") return !!whoami && owner===whoami;
   if(filterVal==="unassigned") return !owner;
   return owner===filterVal;
-}
-function populateWhoami(){
-  const sel=$("whoamiSelect"), lbl=$("whoamiLabel"); if(!sel) return;
-  const roster=getRoster();
-  if(!store.remote || !roster.length){ sel.hidden=true; if(lbl)lbl.hidden=true; return; }
-  sel.hidden=false; if(lbl)lbl.hidden=false;
-  const cur=store.get("wrt.whoami")||"";
-  sel.innerHTML='<option value="">(not set)</option>'+roster.map(n=>'<option value="'+esc(n)+'">'+esc(n)+'</option>').join("");
-  sel.value=cur; if(sel.value!==cur) sel.value="";
 }
 function populateOwnerFilter(){
   const sel=$("ownerFilter"); if(!sel) return;
@@ -1719,28 +1720,28 @@ function populateOwnerFilter(){
   if(!store.remote || !roster.length){ sel.hidden=true; return; }
   sel.hidden=false;
   const cur=store.get("wrt.ownerfilter")||"all";
-  sel.innerHTML=['<option value="all">All projects</option>','<option value="mine">My projects</option>','<option value="unassigned">Unassigned</option>']
-    .concat(roster.map(n=>'<option value="'+esc(n)+'">'+esc(n)+"\u2019s projects</option>"))
+  sel.innerHTML=['<option value="all">All projects</option>','<option value="unassigned">Unassigned</option>']
+    .concat(roster.map(n=>'<option value="'+esc(n)+'">'+esc(n)+'</option>'))
     .join("");
   sel.value=cur; if(sel.value!==cur){ sel.value="all"; store.set("wrt.ownerfilter","all"); }
 }
-function refreshTeamUI(){ populateWhoami(); populateOwnerFilter(); }
+function refreshTeamUI(){ populateOwnerFilter(); }
 /* re-picks the project list for the active owner filter; if the project you're on falls
    outside it, jumps to the first one that still matches (or leaves you put if none do) */
 function applyOwnerFilterAndReload(){
-  const filterVal=store.get("wrt.ownerfilter")||"all", whoami=store.get("wrt.whoami")||"";
-  const stillVisible=projectOwnerMatches(projects[current], filterVal, whoami);
+  const filterVal=store.get("wrt.ownerfilter")||"all";
+  const stillVisible=projectOwnerMatches(projects[current], filterVal);
   renderSelector();
   if(!stillVisible){
-    const idx=projects.findIndex(p=>projectOwnerMatches(p,filterVal,whoami));
+    const idx=projects.findIndex(p=>projectOwnerMatches(p,filterVal));
     if(idx>=0){ current=idx; saveCfg(); if(!$("managePanel").hidden) fillForm(); loadProject(); }
   }
 }
 function renderSelector(){
   const sel=$("projSelect"); sel.innerHTML="";
-  const filterVal=store.get("wrt.ownerfilter")||"all", whoami=store.get("wrt.whoami")||"";
+  const filterVal=store.get("wrt.ownerfilter")||"all";
   const visible=projects.map((p,i)=>({name:p.name||"(unnamed)",i,p}))
-    .filter(o=>projectOwnerMatches(o.p,filterVal,whoami))
+    .filter(o=>projectOwnerMatches(o.p,filterVal))
     .sort((a,b)=>a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
   if(!visible.length){
     const opt=document.createElement("option"); opt.textContent="No projects match this filter"; opt.disabled=true; opt.selected=true;
@@ -1844,10 +1845,6 @@ if(!isClient()){
   { const tn=$("teamNewName"); if(tn) tn.addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); $("teamAddBtn").click(); } }); }
   { const td=$("teamDone"); if(td) td.addEventListener("click",()=>{ $("teamPanel").hidden=true; }); }
   { const of=$("ownerFilter"); if(of) of.addEventListener("change",()=>{ store.set("wrt.ownerfilter", of.value); applyOwnerFilterAndReload(); }); }
-  { const ws=$("whoamiSelect"); if(ws) ws.addEventListener("change",()=>{
-    store.set("wrt.whoami", ws.value);
-    if((store.get("wrt.ownerfilter")||"all")==="mine") applyOwnerFilterAndReload(); else renderSelector();
-  }); }
   function closeMenu(){ const d=$("menuDrop"); if(d){ d.hidden=true; $("menuBtn").setAttribute("aria-expanded","false"); } }
   $("menuBtn").addEventListener("click",e=>{ e.stopPropagation(); const d=$("menuDrop"); const show=d.hidden; d.hidden=!show; $("menuBtn").setAttribute("aria-expanded",String(show)); });
   document.addEventListener("click",e=>{ const w=$("menuWrap"); if(w && !w.contains(e.target)) closeMenu(); });
