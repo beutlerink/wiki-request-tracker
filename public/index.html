@@ -160,7 +160,8 @@
   .comments{margin-top:8px;display:flex;flex-direction:column;gap:6px}
   .comment{background:#f8fafc;border-left:3px solid var(--line-strong);border-radius:0 7px 7px 0;padding:7px 10px;font-size:13.5px;color:var(--ink);margin-left:2px;display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
   .comment .cmt-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
-  .comment .cmt-text{white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word}
+  .comment .cmt-text{white-space:pre-wrap;overflow-wrap:break-word;word-break:break-word;max-width:100%}
+  .comment .cmt-text a{color:var(--accent);text-decoration:underline;overflow-wrap:anywhere;word-break:break-all}
   .comment .cmt-date{font-family:var(--label);font-size:11px;color:var(--muted)}
   .comment .cmt-actions{white-space:nowrap;flex:none}
   .clink{background:none;border:none;color:var(--accent);font:inherit;font-size:12px;font-weight:600;cursor:pointer;padding:0 3px}
@@ -240,6 +241,23 @@
     line-height:1.45;margin:10px 0;cursor:pointer}
   .fchk input{margin-top:2px;width:16px;height:16px;accent-color:var(--accent);flex:none;cursor:pointer}
   .mhint{font-family:var(--label);font-size:13px;color:var(--muted);margin:2px 0 6px}
+  .group-block{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-family:var(--label);font-size:13px}
+  .glink{display:inline-flex;align-items:center;gap:2px;background:var(--surface);border:1px solid var(--line-strong);
+    border-radius:6px;padding:3px 6px 3px 9px;color:var(--ink)}
+  .gx{font:inherit;font-size:14px;line-height:1;border:none;background:none;color:var(--muted);cursor:pointer;padding:0 3px}
+  .gx:hover{color:var(--declined-ink)}
+  .team-list{display:flex;flex-direction:column;gap:6px;margin:8px 0 14px}
+  .team-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 12px;
+    border:1px solid var(--line);border-radius:8px;background:var(--surface-alt);font-family:var(--label);font-size:14px}
+  .team-row button{font:inherit;font-size:12px;font-weight:600;color:var(--declined-ink);background:none;
+    border:none;cursor:pointer;padding:2px 4px}
+  .team-add{display:flex;gap:8px}
+  .team-add input{flex:1;font:inherit;font-size:14px;padding:9px 11px;border:1px solid var(--line-strong);
+    border-radius:8px;background:var(--surface);color:var(--ink)}
+  .team-add button{font:inherit;font-weight:600;font-size:13.5px;padding:9px 16px;border-radius:8px;
+    border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);cursor:pointer}
+  .team-add button:hover{background:var(--surface-alt)}
+  #ownerFilter,#projSelect{max-width:220px}
   .c-act{display:flex;gap:8px;align-items:center;justify-content:flex-end}
   .c-act .cnum{font-size:11px;color:var(--muted);white-space:nowrap}
   .cbtn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:2px 3px;line-height:1;text-decoration:none}
@@ -410,11 +428,15 @@
         <button class="menu-item" id="mNewProj" type="button">+ New project</button>
         <div class="menu-sep"></div>
         <button class="menu-item" id="mFlags" type="button">Flag settings</button>
+        <button class="menu-item" id="mTeam" type="button">Team members</button>
         <div class="menu-sep"></div>
         <button class="menu-item" id="mExport" type="button">Export setup</button>
         <button class="menu-item" id="mImport" type="button">Import setup</button>
       </div>
     </div>
+    <select id="ownerFilter" class="internalOnly" aria-label="Filter projects by owner" hidden></select>
+    <span class="autohint internalOnly" id="whoamiLabel" hidden>Working as:</span>
+    <select id="whoamiSelect" class="internalOnly" aria-label="Set who you are, for the 'mine' filter" hidden></select>
     <select id="projSelect" class="internalOnly" aria-label="Choose project"></select>
     <button class="ghost internalOnly" id="manageBtn" type="button">Project settings</button>
     <button class="ghost internalOnly" id="previewBtn" type="button">Preview client view</button>
@@ -424,12 +446,24 @@
     <span class="synced" id="synced"></span>
   </div>
 
+  <section class="manage internalOnly" id="teamPanel" hidden>
+    <h2>Team members</h2>
+    <p class="mhint">Add the account managers on your team. Assign each project to one in Project settings, then filter the project list to just their projects.</p>
+    <div id="teamList" class="team-list"></div>
+    <div class="team-add"><input id="teamNewName" type="text" placeholder="Add a name, e.g. Hannah"><button id="teamAddBtn" type="button">Add</button></div>
+    <div class="mactions"><button id="teamDone" type="button">Done</button></div>
+  </section>
+
   <section class="manage internalOnly" id="managePanel" hidden>
     <div class="manage-head"><h2>Edit project</h2><button class="ghost small" id="closeBtn" type="button">Show less &#9650;</button></div>
     <div class="mrow">
       <div class="mfield grow">
         <label for="fName">Project name</label>
         <input id="fName" type="text" placeholder="e.g. Hilton Worldwide">
+      </div>
+      <div class="mfield">
+        <label for="fOwner">Owner <span class="help">which account manager runs this</span></label>
+        <select id="fOwner"><option value="">Unassigned</option></select>
       </div>
       <div class="mfield">
         <label for="fStart">Start date <span class="help">ignore anything older</span></label>
@@ -520,7 +554,7 @@ Draft:Some draft article"></textarea>
           <label id="showHiddenWrap" class="internalOnly" style="display:none"><input type="checkbox" id="showHidden"> show hidden (<span id="hiddenCount">0</span>)</label>
           <button class="ghost small" id="expandAllBtn" type="button" title="Expand every request">Expand all</button>
           <button class="ghost small" id="collapseAllBtn" type="button" title="Collapse every request">Collapse all</button>
-          <button class="ghost small internalOnly" id="reReadBtn" type="button" title="Have the AI re-read every discussion.">Re-read discussions</button>
+          <button class="ghost small internalOnly" id="reReadBtn" type="button" title="Force every discussion to be re-read, ignoring the cache. Refresh alone already re-reads anything that changed.">Re-read discussions</button>
           <button class="ghost small internalOnly" id="addBtn" type="button">+ Add upcoming request</button>
         </span>
       </h2>
@@ -604,10 +638,12 @@ const store = (() => {
   if (W.__STATE__) Object.assign(mem, W.__STATE__);      // hydrate shared snapshot
 
   // localStorage is only the source of truth in standalone mode; in remote mode
-  // it is used solely for per-browser keys (e.g. the selected project).
+  // it is used solely for per-browser keys (e.g. the selected project, "working as").
+  // Probe it whenever the page isn't a client-baked link, so those per-browser keys
+  // survive a reload in hosted mode too, not just standalone.
   let ls = false;
-  if (!remote && !clientBaked) { try { localStorage.setItem("__t", "1"); localStorage.removeItem("__t"); ls = true; } catch (e) {} }
-  const LOCAL_ONLY = new Set(["wrt.current.v2"]);         // per-browser, never shared
+  if (!clientBaked) { try { localStorage.setItem("__t", "1"); localStorage.removeItem("__t"); ls = true; } catch (e) {} }
+  const LOCAL_ONLY = new Set(["wrt.current.v2", "wrt.whoami", "wrt.ownerfilter"]);         // per-browser, never shared
 
   let pending = {}, timer = null, flushing = false;
   function schedule() { if (remote && !timer) timer = setTimeout(flush, 400); }
@@ -799,6 +835,25 @@ function firstTs(body){
   return first;
 }
 function daysAgo(d){ return d?Math.floor((Date.now()-d.getTime())/86400000):null; }
+const BUILD_TAG="2026-08-24.1";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
+/* elapsed time since a Date, split into hours/days for display */
+function elapsed(d){
+  if(!d) return null;
+  const ms=Math.max(0, Date.now()-d.getTime());
+  const hours=Math.floor(ms/3600000);
+  return {hours, days:Math.floor(hours/24)};
+}
+/* short badge form: "<1h" / "5h" / "12d" */
+function elapsedShort(d){
+  const e=elapsed(d); if(!e) return null;
+  return e.hours<24 ? (e.hours<1?"<1h":e.hours+"h") : e.days+"d";
+}
+/* long prose form: "5 hours" / "12 days" (no "ago" suffix, callers add their own wording) */
+function elapsedLong(d){
+  const e=elapsed(d); if(!e) return null;
+  if(e.hours<24) return e.hours<1 ? "less than an hour" : e.hours+" hour"+(e.hours===1?"":"s");
+  return e.days+" day"+(e.days===1?"":"s");
+}
 /* the reply portion is everything after the first signature timestamp (the original request) */
 function responsePart(body){
   const re=/\d{1,2}:\d{2},\s+\d{1,2}\s+[A-Za-z]+\s+\d{4}\s+\(UTC\)/;
@@ -1061,7 +1116,7 @@ async function loadProject(){
 
   lastData={proj,requests,activity,edCounts,teamSet,errors,moves};
   render();
-  $("synced").textContent="Updated "+new Date().toLocaleString();
+  $("synced").textContent="Updated "+new Date().toLocaleString()+" \u00b7 build "+BUILD_TAG;
   $("refreshBtn").disabled=false;
   analyzeThreads(false);   // AI reads the discussions, then re-renders with real statuses + summaries
 }
@@ -1077,7 +1132,7 @@ async function analyzeThreads(force){
   const ours=effectiveUsers(lastData.proj);
   const need=[];
   items.forEach(it=>{
-    if(it.kind!=="wiki" || it.ours===false || !it.body) return;
+    if(it.kind!=="wiki" || !it.body) return;
     const key=itemKey(it), sig=aiSig(it);
     if(force || !aiResults[key] || aiResults[key].sig!==sig) need.push({id:key,title:it.heading,body:it.body,sig});
   });
@@ -1103,7 +1158,7 @@ function updateReadBtn(state){
   if(!_aiEnabled){ b.textContent="AI reading off"; b.disabled=true; b.title="Add an ANTHROPIC_API_KEY in Render to turn on AI reading of discussions."; return; }
   b.disabled=(state==="working");
   b.textContent=(state==="working")?"Reading\u2026":"Re-read discussions";
-  b.title="Have the AI re-read every discussion and refresh statuses and summaries.";
+  b.title="Refresh already re-reads any discussion whose content changed. This forces every discussion to be re-read, ignoring what's cached \u2014 useful right after I've improved how the AI reads discussions.";
 }
 
 function buildItems(){
@@ -1120,7 +1175,7 @@ function buildItems(){
     if(!override && r.ours!==false && lastIsTeam && (eff==="declined"||eff==="replied")) eff="awaiting";
     const key="w:"+r.source+"::"+r.heading;
     const ai=aiResults[key]||null;
-    const autoFinal=(ai&&ai.status&&r.ours!==false)?ai.status:eff;   // AI reading wins over keyword guess
+    const autoFinal=(ai&&ai.status)?ai.status:eff;   // AI reading wins over keyword guess, for any thread
     const status=override||autoFinal;
     const rk = group ? ("wrt.resolved::"+proj.name+"::group::"+group) : ("wrt.resolved::"+proj.name+"::"+r.source+"::"+r.heading);
     const dismissBase = group ? ("wrt.dismiss::"+proj.name+"::group::"+group) : ("wrt.dismiss::"+proj.name+"::"+r.source+"::"+r.heading);
@@ -1152,7 +1207,7 @@ function collapseGroups(items){
     members.sort((a,b)=>(GROUP_RANK[b.status]||0)-(GROUP_RANK[a.status]||0));
     const rep=Object.assign({}, members[0]);
     rep.grouped=true;
-    rep.locations=members.map(m=>({label:m.label, url:m.url}));
+    rep.locations=members.map(m=>({label:m.label, url:m.url, hideKey:m.hideKey}));
     rep.ours=members.some(m=>m.ours!==false);
     out.push(rep);
   });
@@ -1209,6 +1264,22 @@ function setOrder(proj,arr){ store.set("wrt.order::"+proj.name, JSON.stringify(a
 function genId(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
 function commentKeyFor(it){ return it.kind==="wiki" ? ("w:"+it.noteKey) : ("m:"+it.id); }
 function fmtCmtDate(ts){ try{ return new Date(ts).toLocaleString(undefined,{month:"short",day:"numeric",year:"numeric",hour:"numeric",minute:"2-digit"}); }catch(e){ return ""; } }
+/* HTML-escape comment text but turn bare URLs into clickable links */
+function linkifyComment(text){
+  const s=String(text||"");
+  const re=/\bhttps?:\/\/[^\s<>"']+/g;
+  let out="", last=0, m;
+  while((m=re.exec(s))){
+    let url=m[0], trail="";
+    while(url.length && /[.,;:!?)\]]/.test(url[url.length-1])){ trail=url[url.length-1]+trail; url=url.slice(0,-1); }
+    out+=esc(s.slice(last,m.index));
+    out+='<a href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+esc(url)+'</a>';
+    out+=esc(trail);
+    last=re.lastIndex;
+  }
+  out+=esc(s.slice(last));
+  return out;
+}
 function getComments(it){
   if(it.kind==="manual"){
     if(Array.isArray(it.item.comments)) return it.item.comments;
@@ -1280,8 +1351,8 @@ function rowHTML(it, client, dragOn, hiddenRow){
   let age="";
   const OPEN_AGE={awaiting:1,posted:1,replied:1};
   if(it.kind==="wiki" && it.ours!==false && OPEN_AGE[it.status] && it.first){
-    const d=daysAgo(it.latest);
-    if(d!==null){ const cls=d>30?"age-old":(d>=14?"age-mid":"age-new"); age='<span class="age '+cls+'" title="'+d+' days since last activity">'+d+'d</span>'; }
+    const e=elapsed(it.latest);
+    if(e){ const cls=e.days>30?"age-old":(e.days>=14?"age-mid":"age-new"); age='<span class="age '+cls+'" title="'+esc(elapsedLong(it.latest))+' since last activity">'+elapsedShort(it.latest)+'</span>'; }
   }
   const where=(it.grouped&&it.locations)?'<span class="src loc">'+it.locations.length+' places</span>':'<span class="src">'+esc(it.label)+'</span>';
   const upd=it.latest?shortDate(it.latest):(it.kind==="manual"?"\u2014":"");
@@ -1316,8 +1387,8 @@ function detailHTML(it, client, hiddenRow){
   const analysis=(it.ai && it.ai.summary) ? it.ai.summary : analysisText(it);
   let bits='<div class="d-analysis">'+esc(analysis)+'</div>';
   if(it.kind==="wiki"){
-    const opened=daysAgo(it.first), idle=daysAgo(it.latest);
-    if(opened!==null) bits+='<div class="d-meta">Open '+opened+' day'+(opened===1?"":"s")+(idle!==null?' \u00b7 last activity '+idle+' day'+(idle===1?"":"s")+' ago':'')+'.</div>';
+    const openedLbl=elapsedLong(it.first), idleLbl=elapsedLong(it.latest);
+    if(openedLbl) bits+='<div class="d-meta">Open '+openedLbl+(idleLbl?' \u00b7 last activity '+idleLbl+' ago':'')+'.</div>';
   }
   if(!client && it.kind==="wiki" && it.override && it.override!==it.auto)
     bits+='<div class="p-hint">Set manually. The page currently reads: '+esc(STATUS[it.auto]?STATUS[it.auto].label:it.auto)+'.</div>';
@@ -1352,9 +1423,21 @@ function detailHTML(it, client, hiddenRow){
     if(hiddenRow){
       bits+='<div class="ctrls"><button class="rm" data-unhide="'+esc(it.hideKey)+'" type="button">unhide</button></div>';
     }else if(it.kind==="wiki"){
+      let groupBlock;
+      if(it.grouped && it.locations && it.locations.length>1){
+        const chips=it.locations.map(loc=>
+          '<span class="glink">'+esc(loc.label)+
+          (loc.hideKey?' <button class="gx" data-ungroup="'+esc(loc.hideKey)+'" type="button" title="Remove just this page from the group">\u00d7</button>':'')+
+          '</span>'
+        ).join('');
+        groupBlock='<div class="group-block"><span class="autohint">Grouped as \u201c'+esc(it.group)+'\u201d:</span> '+chips+
+          (it.locations.length>2?'<button class="rm" data-ungroupall="'+esc(it.locations.map(l=>l.hideKey||"").join("\u001F"))+'" type="button">ungroup all</button>':'')+'</div>';
+      }else{
+        groupBlock='<label class="grp">group <input list="groupList" data-group="'+esc(it.hideKey)+'" value="'+esc(it.group||"")+'" placeholder="link cross-posts"></label>';
+      }
       bits+='<div class="ctrls"><span class="autohint">status:</span>'+
         '<select data-sk="'+esc(it.statusKey)+'">'+statusOptions(it.override,true)+'</select>'+
-        '<label class="grp">group <input list="groupList" data-group="'+esc(it.hideKey)+'" value="'+esc(it.group||"")+'" placeholder="link cross-posts"></label>'+
+        groupBlock+
         '<button class="rm" data-hide="'+esc(it.hideKey)+'" type="button">hide thread</button></div>';
     }else{
       bits+='<div class="ctrls"><span class="autohint">status:</span>'+
@@ -1375,7 +1458,7 @@ function detailHTML(it, client, hiddenRow){
           '<button class="clink" data-savecmt="'+esc(c.id)+'" data-cmtkey="'+esc(ck)+'" type="button">save</button>'+
           '<button class="clink" data-cancelcmt="1" type="button">cancel</button></div>';
       }else{
-        rows+='<div class="comment"><div class="cmt-main"><span class="cmt-text">'+esc(c.text)+'</span>'+
+        rows+='<div class="comment"><div class="cmt-main"><span class="cmt-text">'+linkifyComment(c.text)+'</span>'+
           (c.ts?'<span class="cmt-date">'+esc(fmtCmtDate(c.ts))+'</span>':'')+'</div>'+
           (client?'':'<span class="cmt-actions"><button class="clink" data-editcmt="'+esc(c.id)+'" type="button">edit</button><button class="clink" data-delcmt="'+esc(c.id)+'" data-cmtkey="'+esc(ck)+'" type="button">delete</button></span>')+
           '</div>';
@@ -1471,8 +1554,8 @@ function render(){
   const names=effectiveUsers(proj);
   const nameSub = names.length? ("by: "+names.slice(0,4).join(", ")+(names.length>4?" +"+(names.length-4):"")) : "";
   sectionRows(client?"Your requests":("Initiated by "+(proj.name||"us")), client?"":nameSub, "sec-ours", ours);
-  if(!client) sectionRows("Other threads (started by editors)", "", "sec-other", others);
-  if(!ours.length && (client || !others.length)) list.innerHTML='<div class="state">Nothing matches this filter.</div>';
+  sectionRows(client?"Other activity on these pages":"Other threads (started by editors)", "", "sec-other", others);
+  if(!ours.length && !others.length) list.innerHTML='<div class="state">Nothing matches this filter.</div>';
 
   if(!client && hiddenItems.length && $("showHidden").checked){
     const wrap=document.createElement("div"); wrap.className="req-section sec-hidden";
@@ -1562,6 +1645,15 @@ function wireRequestControls(dragOn){
   list.querySelectorAll("input[data-group]").forEach(inp=>inp.addEventListener("change",()=>{
     store.set("wrt.group::"+lastData.proj.name+"::"+inp.dataset.group, inp.value.trim()); render();
   }));
+  list.querySelectorAll("[data-ungroup]").forEach(b=>b.addEventListener("click",()=>{
+    store.set("wrt.group::"+lastData.proj.name+"::"+b.dataset.ungroup, ""); render();
+  }));
+  list.querySelectorAll("[data-ungroupall]").forEach(b=>b.addEventListener("click",()=>{
+    const keys=b.dataset.ungroupall.split("\u001F").filter(Boolean);
+    if(!confirm("Split all "+keys.length+" linked pages back into separate requests?")) return;
+    keys.forEach(hk=>{ store.set("wrt.group::"+lastData.proj.name+"::"+hk, ""); });
+    render();
+  }));
   // comments
   function addComment(key, val){
     const t=(val||"").trim(); if(!t) return;
@@ -1595,15 +1687,70 @@ function wireRequestControls(dragOn){
 }
 
 /* selector + manage */
+/* ---------- team roster (shared) + personal identity/filter (per-browser) ---------- */
+function getRoster(){ try{ const a=JSON.parse(store.get("wrt.roster")||"[]"); return Array.isArray(a)?a.filter(Boolean):[]; }catch(e){ return []; } }
+function setRoster(arr){ store.set("wrt.roster", JSON.stringify(arr)); }
+function projectOwnerMatches(p, filterVal, whoami){
+  const owner=(p&&p.owner||"").trim();
+  if(!filterVal || filterVal==="all") return true;
+  if(filterVal==="mine") return !!whoami && owner===whoami;
+  if(filterVal==="unassigned") return !owner;
+  return owner===filterVal;
+}
+function populateWhoami(){
+  const sel=$("whoamiSelect"), lbl=$("whoamiLabel"); if(!sel) return;
+  const roster=getRoster();
+  if(!store.remote || !roster.length){ sel.hidden=true; if(lbl)lbl.hidden=true; return; }
+  sel.hidden=false; if(lbl)lbl.hidden=false;
+  const cur=store.get("wrt.whoami")||"";
+  sel.innerHTML='<option value="">(not set)</option>'+roster.map(n=>'<option value="'+esc(n)+'">'+esc(n)+'</option>').join("");
+  sel.value=cur; if(sel.value!==cur) sel.value="";
+}
+function populateOwnerFilter(){
+  const sel=$("ownerFilter"); if(!sel) return;
+  const roster=getRoster();
+  if(!store.remote || !roster.length){ sel.hidden=true; return; }
+  sel.hidden=false;
+  const cur=store.get("wrt.ownerfilter")||"all";
+  sel.innerHTML=['<option value="all">All projects</option>','<option value="mine">My projects</option>','<option value="unassigned">Unassigned</option>']
+    .concat(roster.map(n=>'<option value="'+esc(n)+'">'+esc(n)+"\u2019s projects</option>"))
+    .join("");
+  sel.value=cur; if(sel.value!==cur){ sel.value="all"; store.set("wrt.ownerfilter","all"); }
+}
+function refreshTeamUI(){ populateWhoami(); populateOwnerFilter(); }
+/* re-picks the project list for the active owner filter; if the project you're on falls
+   outside it, jumps to the first one that still matches (or leaves you put if none do) */
+function applyOwnerFilterAndReload(){
+  const filterVal=store.get("wrt.ownerfilter")||"all", whoami=store.get("wrt.whoami")||"";
+  const stillVisible=projectOwnerMatches(projects[current], filterVal, whoami);
+  renderSelector();
+  if(!stillVisible){
+    const idx=projects.findIndex(p=>projectOwnerMatches(p,filterVal,whoami));
+    if(idx>=0){ current=idx; saveCfg(); if(!$("managePanel").hidden) fillForm(); loadProject(); }
+  }
+}
 function renderSelector(){
   const sel=$("projSelect"); sel.innerHTML="";
-  projects.map((p,i)=>({name:p.name||"(unnamed)",i}))
-    .sort((a,b)=>a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
-    .forEach(o=>{const opt=document.createElement("option");opt.value=o.i;opt.textContent=o.name;if(o.i===current)opt.selected=true;sel.appendChild(opt);});
+  const filterVal=store.get("wrt.ownerfilter")||"all", whoami=store.get("wrt.whoami")||"";
+  const visible=projects.map((p,i)=>({name:p.name||"(unnamed)",i,p}))
+    .filter(o=>projectOwnerMatches(o.p,filterVal,whoami))
+    .sort((a,b)=>a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+  if(!visible.length){
+    const opt=document.createElement("option"); opt.textContent="No projects match this filter"; opt.disabled=true; opt.selected=true;
+    sel.appendChild(opt); return;
+  }
+  visible.forEach(o=>{const opt=document.createElement("option");opt.value=o.i;opt.textContent=o.name;if(o.i===current)opt.selected=true;sel.appendChild(opt);});
+}
+function fillOwnerSelect(ownerVal){
+  const el=$("fOwner"); if(!el) return;
+  const names=getRoster().slice();
+  if(ownerVal && !names.includes(ownerVal)) names.push(ownerVal);  // keep a since-removed name visible rather than silently dropping it
+  el.innerHTML='<option value="">Unassigned</option>'+names.map(n=>'<option value="'+esc(n)+'"'+(n===ownerVal?" selected":"")+'>'+esc(n)+'</option>').join("");
 }
 function fillForm(){
   const p=projects[current]||{name:"",start:"",team:"",sources:[]};
   $("fName").value=p.name||""; $("fStart").value=p.start||"";
+  fillOwnerSelect(p.owner||"");
   $("fTeam").value=(p.team||"").replace(/,\s*/g,"\n");
   const agSet=new Set(projAgency(p).map(x=>x.toLowerCase()));
   $("fAgency").innerHTML=AGENCY_ROSTER.map(u=>
@@ -1619,7 +1766,7 @@ function readForm(){
   }).filter(Boolean);
   const prev=projects[current]||{};
   const agency=[...document.querySelectorAll("#fAgency input[type=checkbox]")].filter(c=>c.checked).map(c=>c.dataset.user);
-  return {name:$("fName").value.trim()||"(unnamed)",start:$("fStart").value,team:$("fTeam").value.trim(),agency,sources,manual:prev.manual||[]};
+  return {name:$("fName").value.trim()||"(unnamed)",start:$("fStart").value,owner:$("fOwner").value||"",team:$("fTeam").value.trim(),agency,sources,manual:prev.manual||[]};
 }
 
 if(!isClient()){
@@ -1632,7 +1779,7 @@ if(!isClient()){
   $("closeBtn").addEventListener("click",()=>{$("managePanel").hidden=true;});
   $("mNewProj").addEventListener("click",()=>{
     closeMenu();
-    projects.push({name:"New project",start:"",team:"",agency:AGENCY_ROSTER.slice(),sources:[],manual:[]});
+    projects.push({name:"New project",start:"",owner:store.get("wrt.whoami")||"",team:"",agency:AGENCY_ROSTER.slice(),sources:[],manual:[]});
     current=projects.length-1; saveCfg(); renderSelector();
     $("managePanel").hidden=false; fillForm(); $("fName").focus(); $("fName").select();
   });
@@ -1655,6 +1802,32 @@ if(!isClient()){
   function saveFlagCfg(){ store.set("wrt.flagcfg", JSON.stringify({decide:$("fcDecide").checked,replied:$("fcReplied").checked,wait:$("fcWait").checked})); if(lastData)render(); }
   ["fcDecide","fcReplied","fcWait"].forEach(id=>{ const el=$(id); if(el) el.addEventListener("change",saveFlagCfg); });
   { const fd=$("flagDone"); if(fd) fd.addEventListener("click",()=>{ $("flagPanel").hidden=true; }); }
+  function renderTeamPanel(){
+    const roster=getRoster(), el=$("teamList"); if(!el) return;
+    el.innerHTML = roster.length
+      ? roster.map(n=>'<div class="team-row"><span>'+esc(n)+'</span><button data-rmteam="'+esc(n)+'" type="button">remove</button></div>').join("")
+      : '<div class="mhint">No team members yet. Add names below.</div>';
+    el.querySelectorAll("[data-rmteam]").forEach(b=>b.addEventListener("click",()=>{
+      const name=b.dataset.rmteam;
+      if(!confirm('Remove "'+name+'" from the team list? Projects already assigned to them keep that owner, they just won\u2019t appear in dropdowns anymore.'))return;
+      setRoster(getRoster().filter(n=>n!==name));
+      renderTeamPanel(); refreshTeamUI(); if(!$("managePanel").hidden) fillOwnerSelect(projects[current]&&projects[current].owner||"");
+    }));
+  }
+  { const mt=$("mTeam"); if(mt) mt.addEventListener("click",()=>{ closeMenu(); renderTeamPanel(); $("teamPanel").hidden=false; }); }
+  { const tb=$("teamAddBtn"); if(tb) tb.addEventListener("click",()=>{
+    const inp=$("teamNewName"), name=(inp.value||"").trim(); if(!name) return;
+    const roster=getRoster();
+    if(!roster.some(n=>n.toLowerCase()===name.toLowerCase())){ setRoster(roster.concat([name])); }
+    inp.value=""; renderTeamPanel(); refreshTeamUI(); if(!$("managePanel").hidden) fillOwnerSelect(projects[current]&&projects[current].owner||"");
+  }); }
+  { const tn=$("teamNewName"); if(tn) tn.addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); $("teamAddBtn").click(); } }); }
+  { const td=$("teamDone"); if(td) td.addEventListener("click",()=>{ $("teamPanel").hidden=true; }); }
+  { const of=$("ownerFilter"); if(of) of.addEventListener("change",()=>{ store.set("wrt.ownerfilter", of.value); applyOwnerFilterAndReload(); }); }
+  { const ws=$("whoamiSelect"); if(ws) ws.addEventListener("change",()=>{
+    store.set("wrt.whoami", ws.value);
+    if((store.get("wrt.ownerfilter")||"all")==="mine") applyOwnerFilterAndReload(); else renderSelector();
+  }); }
   function closeMenu(){ const d=$("menuDrop"); if(d){ d.hidden=true; $("menuBtn").setAttribute("aria-expanded","false"); } }
   $("menuBtn").addEventListener("click",e=>{ e.stopPropagation(); const d=$("menuDrop"); const show=d.hidden; d.hidden=!show; $("menuBtn").setAttribute("aria-expanded",String(show)); });
   document.addEventListener("click",e=>{ const w=$("menuWrap"); if(w && !w.contains(e.target)) closeMenu(); });
@@ -1756,6 +1929,7 @@ function startSync(){
       if(j===_lastSnap) return;
       const projBefore=store.get("wrt.projects.v2");
       _lastSnap=j; store.hydrate(snap);
+      refreshTeamUI();
       if(store.get("wrt.projects.v2")!==projBefore){ loadCfg(); renderSelector(); loadProject(); }
       else if(lastData){ render(); }
     }catch(e){}
@@ -1766,6 +1940,8 @@ function exportClientFile(){
   const proj=projects[current];
   const projClone=JSON.parse(JSON.stringify(proj));
   projClone.team=effectiveUsers(proj).join("\n"); // fold agency users in so the client file knows them
+  delete projClone.agency;  // never ship the roster selection
+  delete projClone.owner;   // internal staffing assignment, not for clients
   const baked={client:true, ts:new Date().toISOString(), project:projClone, notes:{}, statuses:{}};
   store.keys("wrt.note::"+proj.name+"::").forEach(k=>baked.notes[k]=store.get(k));
   store.keys("wrt.status::"+proj.name+"::").forEach(k=>baked.statuses[k]=store.get(k));
@@ -1828,7 +2004,7 @@ async function internalBoot(fromSaved){
     store.hydrate(snap);
     hideLogin();
     const sb=$("saveNowBtn"); if(sb){ sb.hidden=false; }
-    loadCfg(); renderSelector(); checkPersistence(); saveIndicator("ok"); startSync(); loadProject();
+    loadCfg(); renderSelector(); refreshTeamUI(); checkPersistence(); saveIndicator("ok"); startSync(); loadProject();
   }catch(e){
     const aborted=e&&e.name==="AbortError";
     showLogin(aborted?"The server didn\u2019t respond in time. It may be waking up. Try Sign in again."
@@ -1851,7 +2027,7 @@ if(!isClient()){
 
 (function boot(){
   if(isClient()){ document.body.classList.add("client"); loadCfg(); loadProject(); return; }
-  if(!store.remote){ loadCfg(); renderSelector(); checkPersistence(); loadProject(); return; }   // standalone file
+  if(!store.remote){ loadCfg(); renderSelector(); refreshTeamUI(); checkPersistence(); loadProject(); return; }   // standalone file
   const saved=(()=>{ try{return sessionStorage.getItem("wrt.auth");}catch(e){return null;} })();
   if(saved){ authHeader=saved; internalBoot(true); } else showLogin();
 })();

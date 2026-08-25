@@ -22,7 +22,7 @@ const INTERNAL_USER = process.env.INTERNAL_USER || "";
 const INTERNAL_PASS = process.env.INTERNAL_PASS || "";
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || "";
 const AI_MODEL = process.env.AI_MODEL || "claude-haiku-4-5-20251001";
-const AI_PROMPT_VERSION = "v3";  // bump to invalidate cached AI reads after a prompt change
+const AI_PROMPT_VERSION = "v4";  // bump to invalidate cached AI reads after a prompt change
 const AI_API_URL = process.env.AI_API_URL || "https://api.anthropic.com/v1/messages";
 
 const INDEX_HTML = fs.readFileSync(path.join(__dirname, "public", "index.html"), "utf8");
@@ -142,6 +142,7 @@ async function buildBaked(projectName) {
   const projClone = JSON.parse(JSON.stringify(proj));
   projClone.team = effectiveUsers(proj).join("\n"); // fold agency in so ownership computes
   delete projClone.agency;                          // never ship the roster selection
+  delete projClone.owner;                            // internal staffing assignment, not for clients
   const baked = { client: true, ts: new Date().toISOString(), project: projClone, notes: {}, statuses: {} };
   baked.notes = await db.getPrefix("wrt.note::" + projectName + "::");
   baked.statuses = await db.getPrefix("wrt.status::" + projectName + "::");
@@ -189,14 +190,23 @@ const AI_SYSTEM =
   "    - partial: some of the requested changes were made or accepted, but not all\n" +
   "    - implemented: all requested changes were made/accepted\n" +
   "    - declined: the request was rejected or closed without the changes\n" +
-  "    - monitored: an open RfC / requested move / broader discussion rather than a simple accept/decline\n" +
+  "    - monitored: an open RfC / requested move / broader discussion rather than a simple accept/decline, OR a " +
+  "discussion among editors that does not involve any of the agency's accounts at all.\n" +
   "  summary: ONE plain sentence (max 22 words) describing the CURRENT state of the discussion, i.e. what has " +
   "happened most recently, not a restatement of the request title. Refer to any of the agency's own accounts as " +
-  "'Beutler'. Refer to other participants by their role ('an editor') or their username. Do not use first person.\n" +
+  "'Beutler'. Refer to other participants by their role ('an editor') or their username. Do not use first person. " +
+  "If none of the agency's accounts appear in the discussion at all, describe neutrally what the editors are " +
+  "discussing, without implying Beutler made any request.\n" +
   "The summary is shown to non-technical clients, so write in plain, natural English. Never include wiki markup, " +
   "template names or syntax, code, field names, URLs, or empty quotation marks. Describe what is being changed in " +
   "ordinary words (for example 'update the headquarters location and brand list'), not by quoting the raw request.\n" +
-  "Judge partial vs implemented carefully: if an editor did part of the work or agreed to part, use partial.";
+  "Judge partial vs implemented carefully: if an editor did part of the work or agreed to part, use partial.\n" +
+  "Do not take a self-reported status at face value: a template parameter, an edit summary, or an editor's own " +
+  "words saying a request is 'done', 'complete', or 'answered' is a CLAIM, not proof. Base your judgment on what " +
+  "the conversation actually shows was done or agreed. If a claim of completion is not backed up by the discussion " +
+  "actually addressing the specific request (or you cannot tell from the text given), do not mark it implemented; " +
+  "use partial or awaiting instead, and note the discrepancy in the summary, e.g. 'marked as done but the discussion " +
+  "does not show the change being addressed.'";
 function aiUserMsg(title, body, ours) {
   return "Agency ('our') accounts: " + ((ours && ours.length) ? ours.join(", ") : "(none specified)") +
     "\n\nRequest title: " + (title || "(untitled)") +
