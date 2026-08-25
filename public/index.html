@@ -48,18 +48,34 @@
   .brand-mark{width:26px;height:26px;border-radius:50%;background:var(--accent);flex:none;
     display:inline-flex;align-items:center;justify-content:center;color:#fff;font-family:var(--serif);font-weight:700;font-size:15px;line-height:1}
   .brand-wordmark{font-family:var(--serif);font-weight:600;font-size:19px;color:var(--ink);letter-spacing:-.01em}
-  .mast{border-bottom:2px solid var(--ink);padding-bottom:16px;margin-bottom:18px}
+  .mast{border-bottom:2px solid var(--ink);padding-bottom:16px;margin-bottom:0}
   .mast .eyebrow{font-family:var(--label);font-size:11px;letter-spacing:.14em;
     text-transform:uppercase;color:var(--muted);margin:0 0 4px}
-  .mast h1{font-family:var(--serif);font-weight:600;font-size:26px;line-height:1.1;
+  #projHead{margin:2px 0 20px}
+  #projHead[hidden]{display:none}
+  #projHead h1{font-family:var(--serif);font-weight:600;font-size:26px;line-height:1.1;
     margin:0;letter-spacing:-.01em}
-  .mast .watching{color:var(--muted);font-size:13px;margin-top:6px}
-  .mast .watching b{color:var(--ink);font-weight:600}
-  .mast .desc{font-family:var(--label);color:var(--ink);font-size:14px;margin-top:8px;max-width:70ch;line-height:1.5}
+  #projHead .watching{color:var(--muted);font-size:13px;margin-top:6px}
+  #projHead .watching b{color:var(--ink);font-weight:600}
+  #projHead .desc{font-family:var(--label);color:var(--ink);font-size:14px;margin-top:8px;max-width:70ch;line-height:1.5}
+  .back-link{display:inline-flex;align-items:center;gap:4px;margin-bottom:8px;font:inherit;
+    font-family:var(--label);font-size:12.5px;font-weight:600;color:var(--muted);
+    background:none;border:none;cursor:pointer;padding:0}
+  .back-link:hover{color:var(--accent)}
+  .proj-list{display:flex;flex-direction:column}
+  .proj-list-item{display:flex;align-items:center;justify-content:space-between;gap:14px;
+    width:100%;text-align:left;font:inherit;background:none;border:none;border-bottom:1px solid var(--line);
+    padding:15px 4px;cursor:pointer}
+  .proj-list-item:last-child{border-bottom:none}
+  .proj-list-item:hover .proj-list-name{color:var(--accent)}
+  .proj-list-name{font-family:var(--serif);font-weight:600;font-size:16px;color:var(--ink)}
+  .proj-list-owner{font-family:var(--label);font-size:11px;font-weight:600;letter-spacing:.04em;
+    text-transform:uppercase;color:var(--muted);flex:none;background:var(--surface-alt);
+    border:1px solid var(--line);border-radius:5px;padding:3px 8px}
   .foot{margin-top:26px;padding-top:14px;border-top:1px solid var(--line);color:var(--muted);font-size:12px;display:flex;align-items:center;gap:8px}
   .foot .brand-mark{width:18px;height:18px;font-size:10px}
 
-  .bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:16px 0 20px}
+  .bar{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin:16px 0 20px}
   .bar select{font:inherit;padding:8px 10px;border:1px solid var(--line-strong);
     border-radius:7px;background:var(--surface);color:var(--ink);min-width:200px}
   button{font:inherit;font-weight:600;cursor:pointer;border-radius:7px;
@@ -426,9 +442,6 @@
       <span id="brandFallback" class="brand-fallback"><span class="brand-mark">B</span><span class="brand-wordmark">Beutler&nbsp;Ink</span></span>
     </div>
     <p class="eyebrow" id="eyebrow">Wikipedia &middot; edit-request status</p>
-    <h1 id="projName">Request Tracker</h1>
-    <div class="watching" id="watching"></div>
-    <div class="desc" id="projDesc" hidden></div>
   </header>
 
   <div id="noSaveWarn" class="nosave internalOnly" hidden></div>
@@ -459,6 +472,13 @@
     <button class="internalOnly" id="saveNowBtn" type="button" hidden>Save</button>
     <span class="savepill internalOnly" id="saveState" hidden></span>
     <span class="synced" id="synced"></span>
+  </div>
+
+  <div id="projHead" hidden>
+    <button class="back-link internalOnly" id="backToListBtn" type="button">&larr; All projects</button>
+    <h1 id="projName">Request Tracker</h1>
+    <div class="watching" id="watching"></div>
+    <div class="desc" id="projDesc" hidden></div>
   </div>
 
   <section class="manage internalOnly" id="teamPanel" hidden>
@@ -851,7 +871,7 @@ function firstTs(body){
   return first;
 }
 function daysAgo(d){ return d?Math.floor((Date.now()-d.getTime())/86400000):null; }
-const BUILD_TAG="2026-08-24.1";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
+const BUILD_TAG="2026-08-25.1";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
 /* elapsed time since a Date, split into hours/days for display */
 function elapsed(d){
   if(!d) return null;
@@ -1231,6 +1251,7 @@ function collapseGroups(items){
 }
 
 function renderHeader(proj){
+  const ph=$("projHead"); if(ph) ph.hidden=false;
   $("projName").textContent=proj.name||"(unnamed project)";
   document.title=(proj.name||"Request")+" \u00b7 status";
   const parts=(proj.sources||[]).filter(s=>s.title).map(s=>"<b>"+esc(sourceLabel(s.title))+"</b>"+(s.match?(" ("+esc(s.match)+")"):""));
@@ -1740,32 +1761,35 @@ function refreshTeamUI(){ populateOwnerFilter(); }
 /* ensures `current` points at a project the active owner filter allows;
    if none do, returns false so the caller can show an empty state instead
    of leaving stale data from whatever project was showing before */
-function syncCurrentToFilter(){
-  const filterVal=store.get("wrt.ownerfilter")||"all";
-  if(projectOwnerMatches(projects[current], filterVal)) return true;
-  const idx=projects.findIndex(p=>projectOwnerMatches(p,filterVal));
-  if(idx>=0){ current=idx; saveCfg(); return true; }
-  return false;
-}
-function showNoProjectsState(){
+/* The homepage is always a list of matching projects; nothing auto-opens.
+   current === -1 means "no project open, showing the list." */
+function showProjectList(){
   lastData=null;
+  current=-1; saveCfg();
   document.title="Request Tracker";
-  const pn=$("projName"); if(pn) pn.textContent="No projects match this filter";
-  const w=$("watching"); if(w) w.innerHTML="";
-  const dEl=$("projDesc"); if(dEl) dEl.hidden=true;
+  const ph=$("projHead"); if(ph) ph.hidden=true;
   $("stats").hidden=true; $("grid").hidden=true;
-  $("msg").innerHTML='<div class="panel"><div class="state"><strong>No projects match this filter</strong>'+
-    '<div class="hint">Pick a different owner above, or add a new project.</div></div></div>';
+  const filterVal=store.get("wrt.ownerfilter")||"all";
+  const visible=projects.map((p,i)=>({name:p.name||"(unnamed)",i,p}))
+    .filter(o=>projectOwnerMatches(o.p,filterVal))
+    .sort((a,b)=>a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+  if(!visible.length){
+    $("msg").innerHTML='<div class="panel"><div class="state"><strong>No projects match this filter</strong>'+
+      '<div class="hint">Pick a different owner above, or add a new project.</div></div></div>';
+  }else{
+    $("msg").innerHTML='<div class="panel"><div class="proj-list">'+
+      visible.map(o=>'<button class="proj-list-item" data-openproj="'+o.i+'" type="button">'+
+        '<span class="proj-list-name">'+esc(o.name)+'</span>'+
+        (o.p.owner?'<span class="proj-list-owner">'+esc(o.p.owner)+'</span>':'')+
+        '</button>').join("")+
+      '</div></div>';
+    $("msg").querySelectorAll("[data-openproj]").forEach(b=>b.addEventListener("click",()=>{
+      current=parseInt(b.dataset.openproj,10); saveCfg(); renderSelector(); loadProject();
+    }));
+  }
   const sy=$("synced"); if(sy) sy.textContent="";
   const mb=$("manageBtn"),pb=$("previewBtn"); if(mb)mb.disabled=true; if(pb)pb.disabled=true;
-}
-/* re-picks the project list for the active owner filter, loading a matching project
-   (or showing an empty state if none match) rather than leaving stale data on screen */
-function applyOwnerFilterAndReload(){
-  const ok=syncCurrentToFilter();
   renderSelector();
-  if(ok){ if(!$("managePanel").hidden) fillForm(); loadProject(); }
-  else showNoProjectsState();
 }
 function renderSelector(){
   const sel=$("projSelect"); sel.innerHTML="";
@@ -1776,6 +1800,10 @@ function renderSelector(){
   if(!visible.length){
     const opt=document.createElement("option"); opt.textContent="No projects match this filter"; opt.disabled=true; opt.selected=true;
     sel.appendChild(opt); return;
+  }
+  if(current===-1 || !visible.some(o=>o.i===current)){
+    const ph=document.createElement("option"); ph.textContent="Choose a project\u2026"; ph.disabled=true; ph.selected=true; ph.value="-1";
+    sel.appendChild(ph);
   }
   visible.forEach(o=>{const opt=document.createElement("option");opt.value=o.i;opt.textContent=o.name;if(o.i===current)opt.selected=true;sel.appendChild(opt);});
 }
@@ -1836,10 +1864,9 @@ if(!isClient()){
   $("deleteBtn").addEventListener("click",()=>{
     if(projects.length<=1){alert("Keep at least one project. Edit this one instead.");return;}
     if(!confirm("Delete \""+(projects[current].name||"this project")+"\"?"))return;
-    projects.splice(current,1);current=0;saveCfg();
-    const ok=syncCurrentToFilter();
-    renderSelector();fillForm();
-    if(ok) loadProject(); else showNoProjectsState();
+    projects.splice(current,1);saveCfg();
+    $("managePanel").hidden=true;
+    showProjectList();
   });
   $("mExport").addEventListener("click",()=>{
     closeMenu();
@@ -1877,7 +1904,8 @@ if(!isClient()){
   }); }
   { const tn=$("teamNewName"); if(tn) tn.addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); $("teamAddBtn").click(); } }); }
   { const td=$("teamDone"); if(td) td.addEventListener("click",()=>{ $("teamPanel").hidden=true; }); }
-  { const of=$("ownerFilter"); if(of) of.addEventListener("change",()=>{ store.set("wrt.ownerfilter", of.value); applyOwnerFilterAndReload(); }); }
+  { const of=$("ownerFilter"); if(of) of.addEventListener("change",()=>{ store.set("wrt.ownerfilter", of.value); showProjectList(); }); }
+  { const bl=$("backToListBtn"); if(bl) bl.addEventListener("click",showProjectList); }
   function closeMenu(){ const d=$("menuDrop"); if(d){ d.hidden=true; $("menuBtn").setAttribute("aria-expanded","false"); } }
   $("menuBtn").addEventListener("click",e=>{ e.stopPropagation(); const d=$("menuDrop"); const show=d.hidden; d.hidden=!show; $("menuBtn").setAttribute("aria-expanded",String(show)); });
   document.addEventListener("click",e=>{ const w=$("menuWrap"); if(w && !w.contains(e.target)) closeMenu(); });
@@ -1890,10 +1918,9 @@ if(!isClient()){
       const legacyG = (parsed && !Array.isArray(parsed) && typeof parsed.agencyUsers==="string") ? parsed.agencyUsers : null;
       const seed = legacyG===null ? AGENCY_ROSTER.slice() : AGENCY_ROSTER.filter(r=>parseUsers(legacyG).some(u=>u.toLowerCase()===r.toLowerCase()));
       arr.forEach(p=>{if(!Array.isArray(p.manual))p.manual=[]; if(!Array.isArray(p.agency))p.agency=seed.slice();});
-      projects=arr;current=0;saveCfg();
-      const ok=syncCurrentToFilter();
-      renderSelector();fillForm();
-      if(ok) loadProject(); else showNoProjectsState();
+      projects=arr;saveCfg();
+      $("managePanel").hidden=true;
+      showProjectList();
       alert("Imported "+arr.length+" project(s).");
     }catch(err){alert("That file didn't look like a valid setup export.");}};
     r.readAsText(f);});
@@ -1984,8 +2011,15 @@ function startSync(){
       _lastSnap=j; store.hydrate(snap);
       refreshTeamUI();
       if(store.get("wrt.projects.v2")!==projBefore){
+        const openName=(current!==-1 && projects[current]) ? projects[current].name : null;
         loadCfg();
-        if(syncCurrentToFilter()){ renderSelector(); loadProject(); } else { renderSelector(); showNoProjectsState(); }
+        if(openName){
+          const idx=projects.findIndex(p=>p.name===openName);
+          if(idx>=0){ current=idx; saveCfg(); renderSelector(); loadProject(); }
+          else showProjectList();   // the project you were viewing was removed elsewhere
+        } else {
+          showProjectList();        // you were already browsing the list; refresh its contents
+        }
       }
       else if(lastData){ render(); }
     }catch(e){}
@@ -2069,7 +2103,7 @@ async function internalBoot(fromSaved){
     hideLogin();
     const sb=$("saveNowBtn"); if(sb){ sb.hidden=false; }
     loadCfg(); refreshTeamUI(); checkPersistence(); saveIndicator("ok"); startSync();
-    if(syncCurrentToFilter()){ renderSelector(); loadProject(); } else { renderSelector(); showNoProjectsState(); }
+    showProjectList();
   }catch(e){
     const aborted=e&&e.name==="AbortError";
     showLogin(aborted?"The server didn\u2019t respond in time. It may be waking up. Try Sign in again."
@@ -2092,7 +2126,7 @@ if(!isClient()){
 
 (function boot(){
   if(isClient()){ document.body.classList.add("client"); loadCfg(); loadProject(); return; }
-  if(!store.remote){ loadCfg(); renderSelector(); refreshTeamUI(); checkPersistence(); loadProject(); return; }   // standalone file
+  if(!store.remote){ loadCfg(); refreshTeamUI(); checkPersistence(); showProjectList(); return; }   // standalone file
   const saved=(()=>{ try{return sessionStorage.getItem("wrt.auth");}catch(e){return null;} })();
   if(saved){ authHeader=saved; internalBoot(true); } else showLogin();
 })();
