@@ -478,13 +478,13 @@
       <label class="tb-label" for="ownerFilter">Owner</label>
       <select id="ownerFilter" aria-label="Filter projects by owner"></select>
     </div>
-    <div class="tb-field internalOnly">
+    <div class="tb-field internalOnly" id="projFieldWrap" hidden>
       <label class="tb-label" for="projSelect">Project</label>
       <select id="projSelect" aria-label="Choose project"></select>
     </div>
-    <button class="ghost internalOnly" id="newProjBtn" type="button" title="Add a new project">+ New project</button>
     <button class="ghost internalOnly" id="manageBtn" type="button">Project settings</button>
     <button class="ghost internalOnly" id="previewBtn" type="button">Preview client view</button>
+    <button class="ghost internalOnly" id="newProjBtn" type="button" title="Add a new project">+ New project</button>
     <button class="internalOnly" id="saveNowBtn" type="button" hidden>Save</button>
     <span class="savepill internalOnly" id="saveState" hidden></span>
     <span class="synced" id="synced"></span>
@@ -895,7 +895,7 @@ function firstTs(body){
   return first;
 }
 function daysAgo(d){ return d?Math.floor((Date.now()-d.getTime())/86400000):null; }
-const BUILD_TAG="2026-08-31.5";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
+const BUILD_TAG="2026-08-31.6";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
 /* elapsed time since a Date, split into hours/days for display */
 function elapsed(d){
   if(!d) return null;
@@ -1111,7 +1111,7 @@ function fetchUserContribs(user){
 
 async function loadProject(){
   const proj=projects[current]; if(!proj)return;
-  { const mb=$("manageBtn"),pb=$("previewBtn"); if(mb){mb.disabled=false;mb.hidden=false;} if(pb){pb.disabled=false;pb.hidden=false;} }
+  { const mb=$("manageBtn"),pb=$("previewBtn"),pf=$("projFieldWrap"); if(mb){mb.disabled=false;mb.hidden=false;} if(pb){pb.disabled=false;pb.hidden=false;} if(pf)pf.hidden=false; populateOwnerFilter(); }
   renderHeader(proj);
   $("msg").innerHTML='<div class="panel"><div class="state"><span class="spin"></span>Reading '+(proj.sources||[]).length+' page(s)&hellip;</div></div>';
   $("stats").hidden=true; $("grid").hidden=true;
@@ -1781,7 +1781,7 @@ function projectOwnerMatches(p, filterVal){
 function populateOwnerFilter(){
   const sel=$("ownerFilter"), wrap=$("ownerFieldWrap"); if(!sel) return;
   const roster=getRoster();
-  if(!store.remote || !roster.length){ if(wrap)wrap.hidden=true; return; }
+  if(!store.remote || !roster.length || current===-1){ if(wrap)wrap.hidden=true; return; }
   if(wrap)wrap.hidden=false;
   const cur=store.get("wrt.ownerfilter")||"all";
   sel.innerHTML=['<option value="all">All projects</option>','<option value="unassigned">Unassigned</option>']
@@ -1804,16 +1804,14 @@ function showProjectList(){
   hideSettingsPanels(null);
   const ph=$("projHead"); if(ph) ph.hidden=true;
   $("stats").hidden=true; $("grid").hidden=true;
-  const filterVal=store.get("wrt.ownerfilter")||"all";
   const sortBy=store.get("wrt.listsort")||"name";
-  const visible=projects.map((p,i)=>({name:p.name||"(unnamed)",i,p,owner:(p.owner||"").trim()}))
-    .filter(o=>projectOwnerMatches(o.p,filterVal));
+  const visible=projects.map((p,i)=>({name:p.name||"(unnamed)",i,p,owner:(p.owner||"").trim()}));
   const head='<div class="proj-list-head"><span class="proj-list-count">'+visible.length+' project'+(visible.length===1?"":"s")+'</span>'+
     '<label class="tools">Sort by<select id="homeSortSel"><option value="name"'+(sortBy==="name"?" selected":"")+'>project name</option>'+
     '<option value="owner"'+(sortBy==="owner"?" selected":"")+'>owner</option></select></label></div>';
   if(!visible.length){
-    $("msg").innerHTML='<div class="panel"><div class="state"><strong>No projects match this filter</strong>'+
-      '<div class="hint">Pick a different owner above, or add a new project.</div></div></div>';
+    $("msg").innerHTML='<div class="panel"><div class="state"><strong>No projects yet</strong>'+
+      '<div class="hint">Add your first one with the + New project button above.</div></div></div>';
   }else{
     const itemHTML=o=>'<button class="proj-list-item" data-openproj="'+o.i+'" type="button">'+
       '<span class="proj-list-name">'+esc(o.name)+'</span>'+
@@ -1840,20 +1838,25 @@ function showProjectList(){
     const ss=$("homeSortSel"); if(ss) ss.addEventListener("change",()=>{ store.set("wrt.listsort", ss.value); showProjectList(); });
   }
   const sy=$("synced"); if(sy) sy.textContent="";
-  const mb=$("manageBtn"),pb=$("previewBtn"); if(mb)mb.hidden=true; if(pb)pb.hidden=true;
+  const mb=$("manageBtn"),pb=$("previewBtn"),ofw=$("ownerFieldWrap"),pfw=$("projFieldWrap");
+  if(mb)mb.hidden=true; if(pb)pb.hidden=true; if(ofw)ofw.hidden=true; if(pfw)pfw.hidden=true;
   renderSelector();
 }
 function renderSelector(){
   const sel=$("projSelect"); sel.innerHTML="";
   const filterVal=store.get("wrt.ownerfilter")||"all";
-  const visible=projects.map((p,i)=>({name:p.name||"(unnamed)",i,p}))
-    .filter(o=>projectOwnerMatches(o.p,filterVal))
-    .sort((a,b)=>a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+  let visible=projects.map((p,i)=>({name:p.name||"(unnamed)",i,p}))
+    .filter(o=>projectOwnerMatches(o.p,filterVal));
+  // the project you're actually looking at should always be selectable, even if it doesn't match the filter
+  if(current!==-1 && projects[current] && !visible.some(o=>o.i===current)){
+    visible.push({name:projects[current].name||"(unnamed)", i:current, p:projects[current]});
+  }
+  visible.sort((a,b)=>a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
   if(!visible.length){
     const opt=document.createElement("option"); opt.textContent="No projects match this filter"; opt.disabled=true; opt.selected=true;
     sel.appendChild(opt); return;
   }
-  if(current===-1 || !visible.some(o=>o.i===current)){
+  if(current===-1){
     const ph=document.createElement("option"); ph.textContent="Choose a project\u2026"; ph.disabled=true; ph.selected=true; ph.value="-1";
     sel.appendChild(ph);
   }
@@ -1973,7 +1976,7 @@ if(!isClient()){
   }); }
   { const tn=$("teamNewName"); if(tn) tn.addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); $("teamAddBtn").click(); } }); }
   { const td=$("teamDone"); if(td) td.addEventListener("click",()=>{ $("teamPanel").hidden=true; }); }
-  { const of=$("ownerFilter"); if(of) of.addEventListener("change",()=>{ store.set("wrt.ownerfilter", of.value); showProjectList(); }); }
+  { const of=$("ownerFilter"); if(of) of.addEventListener("change",()=>{ store.set("wrt.ownerfilter", of.value); renderSelector(); }); }
   { const bl=$("backToListBtn"); if(bl) bl.addEventListener("click",showProjectList); }
   function closeMenu(){ const d=$("menuDrop"); if(d){ d.hidden=true; $("menuBtn").setAttribute("aria-expanded","false"); } }
   { const ap=$("mAllProjects"); if(ap) ap.addEventListener("click",()=>{ closeMenu(); showProjectList(); }); }
