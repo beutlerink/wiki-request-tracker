@@ -463,9 +463,6 @@
         <div class="menu-sep"></div>
         <button class="menu-item" id="mFlags" type="button">Flag settings</button>
         <button class="menu-item" id="mTeam" type="button">Team members</button>
-        <div class="menu-sep"></div>
-        <button class="menu-item" id="mExport" type="button">Export setup</button>
-        <button class="menu-item" id="mImport" type="button">Import setup</button>
       </div>
     </div>
     <div class="tb-field internalOnly" id="ownerFieldWrap" hidden>
@@ -561,7 +558,6 @@ Draft:Some draft article"></textarea>
       <span class="spacer"></span>
       <button class="ghost" id="clientLinkBtn" type="button" hidden>Copy client link</button>
       <button class="ghost" id="clientFileBtn" type="button">Export client file</button>
-      <input id="importFile" type="file" accept="application/json,.json" hidden>
     </div>
   </section>
 
@@ -880,7 +876,7 @@ function firstTs(body){
   return first;
 }
 function daysAgo(d){ return d?Math.floor((Date.now()-d.getTime())/86400000):null; }
-const BUILD_TAG="2026-08-31.2";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
+const BUILD_TAG="2026-08-31.3";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
 /* elapsed time since a Date, split into hours/days for display */
 function elapsed(d){
   if(!d) return null;
@@ -1877,12 +1873,6 @@ if(!isClient()){
     $("managePanel").hidden=true;
     showProjectList();
   });
-  $("mExport").addEventListener("click",()=>{
-    closeMenu();
-    const payload={version:4, projects:projects};
-    const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
-    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="wiki-tracker-setup.json";a.click();URL.revokeObjectURL(a.href);});
-  $("mImport").addEventListener("click",()=>{ closeMenu(); $("importFile").click(); });
   $("mFlags").addEventListener("click",()=>{
     closeMenu();
     const cfg=flagCfg();
@@ -1919,21 +1909,6 @@ if(!isClient()){
   { const ap=$("mAllProjects"); if(ap) ap.addEventListener("click",()=>{ closeMenu(); showProjectList(); }); }
   $("menuBtn").addEventListener("click",e=>{ e.stopPropagation(); const d=$("menuDrop"); const show=d.hidden; d.hidden=!show; $("menuBtn").setAttribute("aria-expanded",String(show)); });
   document.addEventListener("click",e=>{ const w=$("menuWrap"); if(w && !w.contains(e.target)) closeMenu(); });
-  $("importFile").addEventListener("change",e=>{
-    const f=e.target.files[0];if(!f)return;const r=new FileReader();
-    r.onload=()=>{try{
-      const parsed=JSON.parse(r.result);
-      const arr = Array.isArray(parsed) ? parsed : (parsed&&Array.isArray(parsed.projects)?parsed.projects:null);
-      if(!arr||!arr.length)throw 0;
-      const legacyG = (parsed && !Array.isArray(parsed) && typeof parsed.agencyUsers==="string") ? parsed.agencyUsers : null;
-      const seed = legacyG===null ? AGENCY_ROSTER.slice() : AGENCY_ROSTER.filter(r=>parseUsers(legacyG).some(u=>u.toLowerCase()===r.toLowerCase()));
-      arr.forEach(p=>{if(!Array.isArray(p.manual))p.manual=[]; if(!Array.isArray(p.agency))p.agency=seed.slice();});
-      projects=arr;saveCfg();
-      $("managePanel").hidden=true;
-      showProjectList();
-      alert("Imported "+arr.length+" project(s).");
-    }catch(err){alert("That file didn't look like a valid setup export.");}};
-    r.readAsText(f);});
   $("addBtn").addEventListener("click",()=>{
     const c=$("addComposer"); if(!c) return;
     if(!c.hidden){ c.hidden=true; return; }          // toggle off if already open
