@@ -45,7 +45,6 @@
   .brandbar{display:flex;align-items:center;gap:10px;margin-bottom:14px;
     appearance:none;-webkit-appearance:none;background:none;border:none;padding:0;font:inherit;text-align:left}
   .brandbar.is-link{cursor:pointer}
-  .brandbar.is-link:hover,.brandbar.is-link:focus-visible{opacity:.75}
   .brandbar:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
   .brandbar img{height:30px;width:auto;display:block}
   .brandbar img[hidden]{display:none}
@@ -920,7 +919,7 @@ function firstTs(body){
   return first;
 }
 function daysAgo(d){ return d?Math.floor((Date.now()-d.getTime())/86400000):null; }
-const BUILD_TAG="2026-08-31.12";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
+const BUILD_TAG="2026-08-31.13";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
 /* elapsed time since a Date, split into hours/days for display */
 function elapsed(d){
   if(!d) return null;
@@ -1317,9 +1316,6 @@ function renderHeader(proj){
   const foot=$("foot");
   if(isClient()){ foot.hidden=false; $("footText").textContent="Prepared by Beutler Ink \u00b7 updates live from Wikipedia"; }
   else foot.hidden=true;
-  // logo, if one has been embedded
-  const logo = (typeof window!=="undefined" && (window.__LOGO__ || (BAKED&&BAKED.logo))) || null;
-  if(logo){ const img=$("brandLogo"); img.src=logo; img.hidden=false; const fb=$("brandFallback"); if(fb) fb.style.display="none"; }
 }
 
 function hiddenKeyFor(proj){ return "wrt.hidden::"+proj.name; }
@@ -2182,7 +2178,14 @@ if(!isClient()){
   const bb=$("brandBtn"); if(bb) bb.tabIndex=-1;   // branding only for clients; nothing to navigate to
 }
 
+function applyBrandLogo(){
+  const logo = (typeof window!=="undefined" && (window.__LOGO__ || (BAKED&&BAKED.logo))) || null;
+  if(!logo) return;
+  const img=$("brandLogo"); if(img){ img.src=logo; img.hidden=false; }
+  const fb=$("brandFallback"); if(fb) fb.style.display="none";
+}
 (function boot(){
+  applyBrandLogo();
   if(isClient()){ document.body.classList.add("client"); loadCfg(); loadProject(); return; }
   if(!store.remote){ loadCfg(); refreshTeamUI(); checkPersistence(); showProjectList(); return; }   // standalone file
   const saved=(()=>{ try{return sessionStorage.getItem("wrt.auth");}catch(e){return null;} })();
