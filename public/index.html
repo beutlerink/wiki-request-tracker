@@ -160,6 +160,16 @@
   .mactions .spacer{flex:1}
   button.danger{border-color:#c0392b;color:#c0392b;background:transparent}
   button.danger:hover{background:#fdeeec}
+  button.danger:disabled{opacity:.45;cursor:not-allowed;background:transparent}
+  .delete-confirm{padding:14px 16px;border:1px solid #eab6b6;background:#fdf3f2;border-radius:10px;
+    display:flex;flex-direction:column;gap:10px}
+  .delete-confirm[hidden]{display:none}
+  .delete-warn{font-family:var(--label);font-size:13.5px;color:#7a2020;line-height:1.5;margin:0}
+  .delete-warn strong{font-family:var(--mono);letter-spacing:.03em}
+  .delete-confirm-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .delete-confirm-row input{flex:1 1 160px;min-width:140px;font:inherit;font-family:var(--mono);font-size:13.5px;
+    padding:8px 10px;border:1px solid #e0a8a8;border-radius:7px;background:#fff;color:var(--ink)}
+  .delete-confirm-row input:focus-visible{outline:2px solid #c0392b;outline-offset:1px}
 
   .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px}
   .stat{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
@@ -441,6 +451,13 @@
     .grid{grid-template-columns:1fr}
     .synced{margin-left:0;width:100%}
   }
+  @media print{
+    .bar,.back-link,#exitPreview,.tools,#reqTabs,.cbtn,.foot{display:none!important}
+    body{background:#fff;padding:0}
+    .panel{border:none;box-shadow:none}
+    .tpanel,.trow{break-inside:avoid}
+    a{color:inherit;text-decoration:none}
+  }
 </style>
 </head>
 <body>
@@ -578,13 +595,21 @@ Draft:Some draft article"></textarea>
         </div>
       </div>
     </div>
-    <div class="mactions">
+    <div class="mactions" id="mactionsNormal">
       <button id="saveBtn" type="button">Save &amp; close</button>
       <button class="ghost" id="doneBtn" type="button">Done</button>
       <button class="danger" id="deleteBtn" type="button">Delete this project</button>
       <span class="spacer"></span>
       <button class="ghost" id="clientLinkBtn" type="button" hidden>Copy client link</button>
-      <button class="ghost" id="clientFileBtn" type="button">Export client file</button>
+      <button class="ghost" id="clientFileBtn" type="button">Print client PDF</button>
+    </div>
+    <div class="delete-confirm" id="deleteConfirm" hidden>
+      <p class="delete-warn">This permanently removes &ldquo;<strong id="deleteProjName"></strong>&rdquo; and everything tracked for it. This can\u2019t be undone. Type <strong>DELETE</strong> to confirm.</p>
+      <div class="delete-confirm-row">
+        <input type="text" id="deleteConfirmInput" placeholder="Type DELETE" autocomplete="off" spellcheck="false">
+        <button class="danger" id="deleteConfirmBtn" type="button" disabled>Delete permanently</button>
+        <button class="ghost" id="deleteCancelBtn" type="button">Cancel</button>
+      </div>
     </div>
   </section>
 
@@ -678,7 +703,7 @@ const BUCKETS=[
   {key:"partial",     label:"Partially implemented", statuses:["partial"],                      color:"var(--partial-ink)"},
   {key:"discussion",  label:"In discussion",         statuses:["replied"],                      color:"var(--reply-ink)"},
   {key:"monitored",   label:"Under discussion",      statuses:["monitored"],                    color:"var(--posted-ink)"},
-  {key:"awaiting",    label:"Awaiting an editor",    statuses:["awaiting","posted"],            color:"var(--await-ink)"},
+  {key:"awaiting",    label:"Awaiting reply",        statuses:["awaiting","posted"],            color:"var(--await-ink)"},
   {key:"pipeline",    label:"Not yet posted",        statuses:["notposted","upcoming","onhold"],color:"var(--idle-ink)"},
   {key:"declined",    label:"Declined",              statuses:["declined"],                     color:"var(--declined-ink)"}
 ];
@@ -895,7 +920,7 @@ function firstTs(body){
   return first;
 }
 function daysAgo(d){ return d?Math.floor((Date.now()-d.getTime())/86400000):null; }
-const BUILD_TAG="2026-08-31.7";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
+const BUILD_TAG="2026-08-31.9";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
 /* elapsed time since a Date, split into hours/days for display */
 function elapsed(d){
   if(!d) return null;
@@ -1889,6 +1914,7 @@ function fillTeamDefaultFlags(){
   if(wEl) wEl.checked=cfg.wait!==false;
 }
 function fillForm(){
+  const dc=$("deleteConfirm"),mn=$("mactionsNormal"); if(dc)dc.hidden=true; if(mn)mn.hidden=false;
   const p=projects[current]||{name:"",start:"",team:"",sources:[]};
   $("fName").value=p.name||""; $("fStart").value=p.start||"";
   fillOwnerSelect(p.owner||"");
@@ -1948,11 +1974,30 @@ if(!isClient()){
   });
   $("deleteBtn").addEventListener("click",()=>{
     if(projects.length<=1){alert("Keep at least one project. Edit this one instead.");return;}
-    if(!confirm("Delete \""+(projects[current].name||"this project")+"\"?"))return;
+    $("deleteProjName").textContent=projects[current].name||"this project";
+    $("deleteConfirmInput").value="";
+    $("deleteConfirmBtn").disabled=true;
+    $("mactionsNormal").hidden=true;
+    $("deleteConfirm").hidden=false;
+    $("deleteConfirmInput").focus();
+  });
+  { const dci=$("deleteConfirmInput"); if(dci) dci.addEventListener("input",()=>{
+    $("deleteConfirmBtn").disabled = dci.value!=="DELETE";
+  }); }
+  { const dci=$("deleteConfirmInput"); if(dci) dci.addEventListener("keydown",e=>{
+    if(e.key==="Enter" && dci.value==="DELETE"){ e.preventDefault(); $("deleteConfirmBtn").click(); }
+    if(e.key==="Escape"){ e.preventDefault(); $("deleteCancelBtn").click(); }
+  }); }
+  { const dcancel=$("deleteCancelBtn"); if(dcancel) dcancel.addEventListener("click",()=>{
+    $("deleteConfirm").hidden=true; $("mactionsNormal").hidden=false;
+  }); }
+  { const dconf=$("deleteConfirmBtn"); if(dconf) dconf.addEventListener("click",()=>{
+    if($("deleteConfirmInput").value!=="DELETE") return;
     projects.splice(current,1);saveCfg();
+    $("deleteConfirm").hidden=true; $("mactionsNormal").hidden=false;
     $("managePanel").hidden=true;
     showProjectList();
-  });
+  }); }
   function saveFlagCfg(){ store.set("wrt.flagcfg", JSON.stringify({decide:$("fcDecide").checked,replied:$("fcReplied").checked,wait:$("fcWait").checked})); if(lastData)render(); }
   ["fcDecide","fcReplied","fcWait"].forEach(id=>{ const el=$(id); if(el) el.addEventListener("change",saveFlagCfg); });
   function renderTeamPanel(){
@@ -2084,37 +2129,26 @@ function startSync(){
   }, 12000);
 }
 
-function stripCommentAuthorsForClient(manual){
-  if(!Array.isArray(manual)) return;
-  manual.forEach(item=>{ if(Array.isArray(item&&item.comments)) item.comments=item.comments.map(c=>{ const {by,...rest}=c||{}; return rest; }); });
-}
 function exportClientFile(){
-  const proj=projects[current];
-  const projClone=JSON.parse(JSON.stringify(proj));
-  projClone.team=effectiveUsers(proj).join("\n"); // fold agency users in so the client file knows them
-  delete projClone.agency;  // never ship the roster selection
-  delete projClone.owner;   // internal staffing assignment, not for clients
-  delete projClone.flagOverrides;   // internal workflow tuning, not for clients
-  stripCommentAuthorsForClient(projClone.manual); // who on our team wrote it is internal, not for clients
-  const baked={client:true, ts:new Date().toISOString(), project:projClone, notes:{}, statuses:{}};
-  store.keys("wrt.note::"+proj.name+"::").forEach(k=>{
-    let v=store.get(k);
-    try{ const arr=JSON.parse(v); if(Array.isArray(arr)) v=JSON.stringify(arr.map(c=>{ const {by,...rest}=c||{}; return rest; })); }catch(e){}
-    baked.notes[k]=v;
-  });
-  store.keys("wrt.status::"+proj.name+"::").forEach(k=>baked.statuses[k]=store.get(k));
-  const payload=JSON.stringify(baked).replace(/</g,"\\u003c");
-  // clone the page and strip anything that could reveal other projects
-  const clone=document.documentElement.cloneNode(true);
-  const cs=clone.querySelector("#projSelect"); if(cs)cs.innerHTML="";
-  const mp=clone.querySelector("#managePanel"); if(mp)mp.remove();
-  ["#reqList","#feed","#editors","#msg"].forEach(sel=>{const n=clone.querySelector(sel); if(n)n.innerHTML="";});
-  const sy=clone.querySelector("#synced"); if(sy)sy.textContent="";
-  let html="<!DOCTYPE html>\n"+clone.outerHTML;
-  html=html.replace("</head>","<script>window.__BAKED__="+payload+";<\/script></head>");
-  const safe=(proj.name||"client").replace(/[^\w\- ]+/g,"").trim().replace(/\s+/g,"-")||"client";
-  const blob=new Blob([html],{type:"text/html"});
-  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=safe+"-status.html";a.click();URL.revokeObjectURL(a.href);
+  const proj=projects[current]; if(!proj) return;
+  // snapshot everything we're about to change, so we can put it back exactly afterward
+  const prevPreview=previewClient, prevExpanded=new Set(expandedSet), prevFilter=curFilter;
+  curFilter="all";                 // the PDF should show every request, not just whatever tab was active
+  previewClient=true;              // reuse the app's own client-safe rendering (same code path as a real client link)
+  render(); renderHeader(proj);
+  // expand every row so the printed page shows full detail, not collapsed summaries
+  document.querySelectorAll("[data-expand]").forEach(el=>expandedSet.add(el.getAttribute("data-expand")));
+  render(); renderHeader(proj);
+  let restored=false;
+  function restore(){
+    if(restored) return; restored=true;
+    previewClient=prevPreview; expandedSet=prevExpanded; curFilter=prevFilter;
+    render(); renderHeader(proj);
+    window.removeEventListener("afterprint", restore);
+  }
+  window.addEventListener("afterprint", restore);
+  setTimeout(restore, 60000); // safety net in case afterprint never fires in some browser
+  setTimeout(()=>window.print(), 50); // tiny delay so the expanded render is painted before the print dialog opens
 }
 
 $("reqTabs").addEventListener("click",e=>{const b=e.target.closest(".tab");if(b){curFilter=b.dataset.tab;if(lastData)render();}});
