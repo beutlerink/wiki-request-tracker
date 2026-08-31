@@ -283,6 +283,9 @@
     line-height:1.45;margin:10px 0;cursor:pointer}
   .fchk input{margin-top:2px;width:16px;height:16px;accent-color:var(--accent);flex:none;cursor:pointer}
   .mhint{font-family:var(--label);font-size:13px;color:var(--muted);margin:2px 0 6px}
+  .fo-sublabel{display:block;font-family:var(--label);font-size:11.5px;font-weight:600;letter-spacing:.03em;
+    text-transform:uppercase;color:var(--muted);margin:2px 0 6px}
+  .flag-team-default{margin-bottom:4px}
   .flag-override-row{display:flex;flex-wrap:wrap;gap:16px 24px}
   .fo-item{display:flex;flex-direction:column;gap:5px;font-family:var(--label);font-size:12.5px;
     font-weight:600;color:var(--ink);width:auto}
@@ -470,7 +473,6 @@
       <div class="menu-drop" id="menuDrop" hidden>
         <button class="menu-item" id="mAllProjects" type="button">All projects</button>
         <div class="menu-sep"></div>
-        <button class="menu-item" id="mFlags" type="button">Flag settings</button>
         <button class="menu-item" id="mTeam" type="button">Team members</button>
       </div>
     </div>
@@ -485,7 +487,6 @@
     <button class="ghost internalOnly" id="manageBtn" type="button">Project settings</button>
     <button class="ghost internalOnly" id="previewBtn" type="button">Preview client view</button>
     <button class="ghost internalOnly" id="newProjBtn" type="button" title="Add a new project">+ New project</button>
-    <button class="internalOnly" id="saveNowBtn" type="button" hidden>Save</button>
     <span class="savepill internalOnly" id="saveState" hidden></span>
     <span class="synced" id="synced"></span>
   </div>
@@ -562,7 +563,14 @@ Draft:Some draft article"></textarea>
     </div>
     <div class="mrow">
       <div class="mfield grow" style="flex-basis:100%">
-        <label>Attention flags for this project <span class="help">leave on "team default" to follow Flag settings; override just for this project if needed</span></label>
+        <label>Attention flags <span class="help">which situations raise a "Needs attention" flag</span></label>
+        <span class="fo-sublabel">Team default &mdash; applies to every project unless overridden below</span>
+        <div class="flag-team-default">
+          <label class="fchk"><input type="checkbox" id="fcDecide"> <span><strong>Decision needed</strong> &mdash; a partial or declined request you haven't marked resolved or still-pursuing</span></label>
+          <label class="fchk"><input type="checkbox" id="fcReplied"> <span><strong>Editor replied</strong> &mdash; an editor responded and the ball is in your court</span></label>
+          <label class="fchk"><input type="checkbox" id="fcWait"> <span><strong>Long wait</strong> &mdash; a request has been awaiting an editor for 30+ days</span></label>
+        </div>
+        <span class="fo-sublabel" style="margin-top:14px">Override for this project only</span>
         <div class="flag-override-row">
           <label class="fo-item">Decision needed<select id="foDecide"><option value="">Team default</option><option value="on">On</option><option value="off">Off</option></select></label>
           <label class="fo-item">Editor replied<select id="foReplied"><option value="">Team default</option><option value="on">On</option><option value="off">Off</option></select></label>
@@ -578,15 +586,6 @@ Draft:Some draft article"></textarea>
       <button class="ghost" id="clientLinkBtn" type="button" hidden>Copy client link</button>
       <button class="ghost" id="clientFileBtn" type="button">Export client file</button>
     </div>
-  </section>
-
-  <section class="manage internalOnly" id="flagPanel" hidden>
-    <h2>Flag settings</h2>
-    <p class="mhint">Choose which situations raise a "Needs attention" flag. This is the team-wide default; override it for one project in that project's settings.</p>
-    <label class="fchk"><input type="checkbox" id="fcDecide"> <span><strong>Decision needed</strong> &mdash; a partial or declined request you haven't marked resolved or still-pursuing</span></label>
-    <label class="fchk"><input type="checkbox" id="fcReplied"> <span><strong>Editor replied</strong> &mdash; an editor responded and the ball is in your court</span></label>
-    <label class="fchk"><input type="checkbox" id="fcWait"> <span><strong>Long wait</strong> &mdash; a request has been awaiting an editor for 30+ days</span></label>
-    <div class="mactions"><button id="flagDone" type="button">Done</button></div>
   </section>
 
   <div class="prog-panel" id="stats" hidden>
@@ -678,6 +677,7 @@ const BUCKETS=[
   {key:"implemented", label:"Implemented",           statuses:["implemented"],                 color:"var(--done-ink)"},
   {key:"partial",     label:"Partially implemented", statuses:["partial"],                      color:"var(--partial-ink)"},
   {key:"discussion",  label:"In discussion",         statuses:["replied"],                      color:"var(--reply-ink)"},
+  {key:"monitored",   label:"Under discussion",      statuses:["monitored"],                    color:"var(--posted-ink)"},
   {key:"awaiting",    label:"Awaiting an editor",    statuses:["awaiting","posted"],            color:"var(--await-ink)"},
   {key:"pipeline",    label:"Not yet posted",        statuses:["notposted","upcoming","onhold"],color:"var(--idle-ink)"},
   {key:"declined",    label:"Declined",              statuses:["declined"],                     color:"var(--declined-ink)"}
@@ -895,7 +895,7 @@ function firstTs(body){
   return first;
 }
 function daysAgo(d){ return d?Math.floor((Date.now()-d.getTime())/86400000):null; }
-const BUILD_TAG="2026-08-31.6";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
+const BUILD_TAG="2026-08-31.7";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
 /* elapsed time since a Date, split into hours/days for display */
 function elapsed(d){
   if(!d) return null;
@@ -1177,7 +1177,7 @@ async function loadProject(){
 
   lastData={proj,requests,activity,edCounts,teamSet,errors,moves};
   render();
-  $("synced").textContent="Updated "+new Date().toLocaleString()+" \u00b7 build "+BUILD_TAG;
+  { const sy=$("synced"); sy.textContent="Updated "+new Date().toLocaleString(); sy.title="build "+BUILD_TAG; }
   analyzeThreads(false);   // AI reads the discussions, then re-renders with real statuses + summaries
 }
 
@@ -1881,6 +1881,13 @@ function fillFlagOverrides(fo){
   if(rEl) rEl.value=toVal(ov.replied);
   if(wEl) wEl.value=toVal(ov.wait);
 }
+function fillTeamDefaultFlags(){
+  const cfg=flagCfg();
+  const d=$("fcDecide"),r=$("fcReplied"),wEl=$("fcWait");
+  if(d) d.checked=cfg.decide!==false;
+  if(r) r.checked=cfg.replied!==false;
+  if(wEl) wEl.checked=cfg.wait!==false;
+}
 function fillForm(){
   const p=projects[current]||{name:"",start:"",team:"",sources:[]};
   $("fName").value=p.name||""; $("fStart").value=p.start||"";
@@ -1891,6 +1898,7 @@ function fillForm(){
     '<label class="agchk"><input type="checkbox" data-user="'+esc(u)+'"'+(agSet.has(u.toLowerCase())?" checked":"")+"> "+esc(u)+"</label>"
   ).join("");
   updateAgToggle();
+  fillTeamDefaultFlags();
   fillFlagOverrides(p.flagOverrides);
   $("fPages").value=(p.sources||[]).map(s=>s.title+(s.match?(" | "+s.match):"")).join("\n");
 }
@@ -1916,7 +1924,7 @@ function readForm(){
 }
 
 function hideSettingsPanels(exceptId){
-  ["managePanel","teamPanel","flagPanel"].forEach(id=>{ if(id!==exceptId){ const el=$(id); if(el) el.hidden=true; } });
+  ["managePanel","teamPanel"].forEach(id=>{ if(id!==exceptId){ const el=$(id); if(el) el.hidden=true; } });
 }
 if(!isClient()){
   $("manageBtn").addEventListener("click",()=>{const p=$("managePanel");const opening=p.hidden;hideSettingsPanels("managePanel");p.hidden=!opening;if(opening)fillForm();});
@@ -1945,16 +1953,8 @@ if(!isClient()){
     $("managePanel").hidden=true;
     showProjectList();
   });
-  $("mFlags").addEventListener("click",()=>{
-    closeMenu();
-    hideSettingsPanels("flagPanel");
-    const cfg=flagCfg();
-    $("fcDecide").checked=cfg.decide!==false; $("fcReplied").checked=cfg.replied!==false; $("fcWait").checked=cfg.wait!==false;
-    $("flagPanel").hidden=false;
-  });
   function saveFlagCfg(){ store.set("wrt.flagcfg", JSON.stringify({decide:$("fcDecide").checked,replied:$("fcReplied").checked,wait:$("fcWait").checked})); if(lastData)render(); }
   ["fcDecide","fcReplied","fcWait"].forEach(id=>{ const el=$(id); if(el) el.addEventListener("change",saveFlagCfg); });
-  { const fd=$("flagDone"); if(fd) fd.addEventListener("click",()=>{ $("flagPanel").hidden=true; }); }
   function renderTeamPanel(){
     const roster=getRoster(), el=$("teamList"); if(!el) return;
     el.innerHTML = roster.length
@@ -2160,7 +2160,6 @@ async function internalBoot(fromSaved){
     const snap=await r.json();
     store.hydrate(snap);
     hideLogin();
-    const sb=$("saveNowBtn"); if(sb){ sb.hidden=false; }
     loadCfg(); refreshTeamUI(); checkPersistence(); saveIndicator("ok"); startSync();
     showProjectList();
   }catch(e){
@@ -2173,14 +2172,6 @@ async function internalBoot(fromSaved){
 if(!isClient()){
   const lb=$("loginBtn"); if(lb) lb.addEventListener("click",submitLogin);
   ["loginUser","loginPass"].forEach(id=>{ const el=$(id); if(el) el.addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); submitLogin(); } }); });
-  const sb=$("saveNowBtn");
-  if(sb) sb.addEventListener("click",async ()=>{
-    if(!store.remote) return;
-    saveIndicator("pending");
-    saveCfg();                 // enqueue the latest project data
-    await store.flushNow();    // push it now and report the result
-    if(!store.hasPending()) saveIndicator("ok");
-  });
 }
 
 (function boot(){
