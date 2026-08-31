@@ -108,7 +108,7 @@ async function initDb() {
 // the team. Mirrors the client's own LOCAL_ONLY set; kept out of the shared
 // snapshot so one person's local UI state (last project, last filter, last
 // comment-signature pick) never leaks into what the team sees.
-const LOCAL_ONLY_KEYS = new Set(["wrt.current.v2", "wrt.whoami", "wrt.ownerfilter", "wrt.listsort"]);
+const LOCAL_ONLY_KEYS = new Set(["wrt.current.v2", "wrt.whoami", "wrt.listsort"]);
 function isAppKey(k) { return k.indexOf("wrt.") === 0 && !LOCAL_ONLY_KEYS.has(k); }
 
 async function appSnapshot() {

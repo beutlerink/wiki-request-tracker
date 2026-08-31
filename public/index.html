@@ -316,7 +316,7 @@
   .team-add button{font:inherit;font-weight:600;font-size:13.5px;padding:9px 16px;border-radius:8px;
     border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);cursor:pointer}
   .team-add button:hover{background:var(--surface-alt)}
-  #ownerFilter,#projSelect{max-width:220px}
+  #projSelect{max-width:220px}
   .c-act{display:flex;gap:8px;align-items:center;justify-content:flex-end}
   .c-act .cnum{font-size:11px;color:var(--muted);white-space:nowrap}
   .cbtn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:2px 3px;line-height:1;text-decoration:none}
@@ -493,10 +493,6 @@
         <button class="menu-item" id="mTeam" type="button">Team members</button>
       </div>
     </div>
-    <div class="tb-field internalOnly" id="ownerFieldWrap" hidden>
-      <label class="tb-label" for="ownerFilter">Owner</label>
-      <select id="ownerFilter" aria-label="Filter projects by owner"></select>
-    </div>
     <div class="tb-field internalOnly" id="projFieldWrap" hidden>
       <label class="tb-label" for="projSelect">Project</label>
       <select id="projSelect" aria-label="Choose project"></select>
@@ -604,7 +600,7 @@ Draft:Some draft article"></textarea>
       <button class="ghost" id="clientFileBtn" type="button">Print client PDF</button>
     </div>
     <div class="delete-confirm" id="deleteConfirm" hidden>
-      <p class="delete-warn">This permanently removes &ldquo;<strong id="deleteProjName"></strong>&rdquo; and everything tracked for it. This can\u2019t be undone. Type <strong>DELETE</strong> to confirm.</p>
+      <p class="delete-warn">This permanently removes &ldquo;<strong id="deleteProjName"></strong>&rdquo; and everything tracked for it. This can&rsquo;t be undone. Type <strong>DELETE</strong> to confirm.</p>
       <div class="delete-confirm-row">
         <input type="text" id="deleteConfirmInput" placeholder="Type DELETE" autocomplete="off" spellcheck="false">
         <button class="danger" id="deleteConfirmBtn" type="button" disabled>Delete permanently</button>
@@ -728,7 +724,7 @@ const store = (() => {
   // survive a reload in hosted mode too, not just standalone.
   let ls = false;
   if (!clientBaked) { try { localStorage.setItem("__t", "1"); localStorage.removeItem("__t"); ls = true; } catch (e) {} }
-  const LOCAL_ONLY = new Set(["wrt.current.v2", "wrt.whoami", "wrt.ownerfilter", "wrt.listsort"]);         // per-browser, never shared
+  const LOCAL_ONLY = new Set(["wrt.current.v2", "wrt.whoami", "wrt.listsort"]);         // per-browser, never shared
 
   let pending = {}, timer = null, flushing = false;
   function schedule() { if (remote && !timer) timer = setTimeout(flush, 400); }
@@ -920,7 +916,7 @@ function firstTs(body){
   return first;
 }
 function daysAgo(d){ return d?Math.floor((Date.now()-d.getTime())/86400000):null; }
-const BUILD_TAG="2026-08-31.9";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
+const BUILD_TAG="2026-08-31.11";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
 /* elapsed time since a Date, split into hours/days for display */
 function elapsed(d){
   if(!d) return null;
@@ -1136,7 +1132,7 @@ function fetchUserContribs(user){
 
 async function loadProject(){
   const proj=projects[current]; if(!proj)return;
-  { const mb=$("manageBtn"),pb=$("previewBtn"),pf=$("projFieldWrap"); if(mb){mb.disabled=false;mb.hidden=false;} if(pb){pb.disabled=false;pb.hidden=false;} if(pf)pf.hidden=false; populateOwnerFilter(); }
+  { const mb=$("manageBtn"),pb=$("previewBtn"),pf=$("projFieldWrap"); if(mb){mb.disabled=false;mb.hidden=false;} if(pb){pb.disabled=false;pb.hidden=false;} if(pf)pf.hidden=false; }
   renderHeader(proj);
   $("msg").innerHTML='<div class="panel"><div class="state"><span class="spin"></span>Reading '+(proj.sources||[]).length+' page(s)&hellip;</div></div>';
   $("stats").hidden=true; $("grid").hidden=true;
@@ -1797,29 +1793,7 @@ function wireRequestControls(dragOn){
 /* ---------- team roster (shared) + personal identity/filter (per-browser) ---------- */
 function getRoster(){ try{ const a=JSON.parse(store.get("wrt.roster")||"[]"); return Array.isArray(a)?a.filter(Boolean):[]; }catch(e){ return []; } }
 function setRoster(arr){ store.set("wrt.roster", JSON.stringify(arr)); }
-function projectOwnerMatches(p, filterVal){
-  const owner=(p&&p.owner||"").trim();
-  if(!filterVal || filterVal==="all") return true;
-  if(filterVal==="unassigned") return !owner;
-  return owner===filterVal;
-}
-function populateOwnerFilter(){
-  const sel=$("ownerFilter"), wrap=$("ownerFieldWrap"); if(!sel) return;
-  const roster=getRoster();
-  if(!store.remote || !roster.length || current===-1){ if(wrap)wrap.hidden=true; return; }
-  if(wrap)wrap.hidden=false;
-  const cur=store.get("wrt.ownerfilter")||"all";
-  sel.innerHTML=['<option value="all">All projects</option>','<option value="unassigned">Unassigned</option>']
-    .concat(roster.map(n=>'<option value="'+esc(n)+'">'+esc(n)+'</option>'))
-    .join("");
-  sel.value=cur; if(sel.value!==cur){ sel.value="all"; store.set("wrt.ownerfilter","all"); }
-}
-function refreshTeamUI(){ populateOwnerFilter(); }
-/* re-picks the project list for the active owner filter; if the project you're on falls
-   outside it, jumps to the first one that still matches (or leaves you put if none do) */
-/* ensures `current` points at a project the active owner filter allows;
-   if none do, returns false so the caller can show an empty state instead
-   of leaving stale data from whatever project was showing before */
+function refreshTeamUI(){}
 /* The homepage is always a list of matching projects; nothing auto-opens.
    current === -1 means "no project open, showing the list." */
 function showProjectList(){
@@ -1863,29 +1837,23 @@ function showProjectList(){
     const ss=$("homeSortSel"); if(ss) ss.addEventListener("change",()=>{ store.set("wrt.listsort", ss.value); showProjectList(); });
   }
   const sy=$("synced"); if(sy) sy.textContent="";
-  const mb=$("manageBtn"),pb=$("previewBtn"),ofw=$("ownerFieldWrap"),pfw=$("projFieldWrap");
-  if(mb)mb.hidden=true; if(pb)pb.hidden=true; if(ofw)ofw.hidden=true; if(pfw)pfw.hidden=true;
+  const mb=$("manageBtn"),pb=$("previewBtn"),pfw=$("projFieldWrap");
+  if(mb)mb.hidden=true; if(pb)pb.hidden=true; if(pfw)pfw.hidden=true;
   renderSelector();
 }
 function renderSelector(){
   const sel=$("projSelect"); sel.innerHTML="";
-  const filterVal=store.get("wrt.ownerfilter")||"all";
-  let visible=projects.map((p,i)=>({name:p.name||"(unnamed)",i,p}))
-    .filter(o=>projectOwnerMatches(o.p,filterVal));
-  // the project you're actually looking at should always be selectable, even if it doesn't match the filter
-  if(current!==-1 && projects[current] && !visible.some(o=>o.i===current)){
-    visible.push({name:projects[current].name||"(unnamed)", i:current, p:projects[current]});
-  }
-  visible.sort((a,b)=>a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
-  if(!visible.length){
-    const opt=document.createElement("option"); opt.textContent="No projects match this filter"; opt.disabled=true; opt.selected=true;
+  const all=projects.map((p,i)=>({name:p.name||"(unnamed)",i}))
+    .sort((a,b)=>a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+  if(!all.length){
+    const opt=document.createElement("option"); opt.textContent="No projects yet"; opt.disabled=true; opt.selected=true;
     sel.appendChild(opt); return;
   }
   if(current===-1){
     const ph=document.createElement("option"); ph.textContent="Choose a project\u2026"; ph.disabled=true; ph.selected=true; ph.value="-1";
     sel.appendChild(ph);
   }
-  visible.forEach(o=>{const opt=document.createElement("option");opt.value=o.i;opt.textContent=o.name;if(o.i===current)opt.selected=true;sel.appendChild(opt);});
+  all.forEach(o=>{const opt=document.createElement("option");opt.value=o.i;opt.textContent=o.name;if(o.i===current)opt.selected=true;sel.appendChild(opt);});
 }
 function fillOwnerSelect(ownerVal){
   const el=$("fOwner"); if(!el) return;
@@ -2021,7 +1989,6 @@ if(!isClient()){
   }); }
   { const tn=$("teamNewName"); if(tn) tn.addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); $("teamAddBtn").click(); } }); }
   { const td=$("teamDone"); if(td) td.addEventListener("click",()=>{ $("teamPanel").hidden=true; }); }
-  { const of=$("ownerFilter"); if(of) of.addEventListener("change",()=>{ store.set("wrt.ownerfilter", of.value); renderSelector(); }); }
   { const bl=$("backToListBtn"); if(bl) bl.addEventListener("click",showProjectList); }
   function closeMenu(){ const d=$("menuDrop"); if(d){ d.hidden=true; $("menuBtn").setAttribute("aria-expanded","false"); } }
   { const ap=$("mAllProjects"); if(ap) ap.addEventListener("click",()=>{ closeMenu(); showProjectList(); }); }
