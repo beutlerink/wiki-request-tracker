@@ -65,6 +65,11 @@
     border:1px solid var(--line-strong);border-radius:999px;cursor:pointer;padding:6px 14px 6px 12px}
   .back-link:hover,.back-link:focus-visible{background:var(--surface-alt);border-color:var(--accent);color:var(--accent);outline:none}
   .back-link:active{background:var(--surface-alt)}
+  .proj-list-head{display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:14px 18px;border-bottom:1px solid var(--line)}
+  .proj-list-count{font-family:var(--label);font-size:12.5px;color:var(--muted)}
+  .proj-group-head{font-family:var(--label);font-size:11px;font-weight:700;letter-spacing:.06em;
+    text-transform:uppercase;color:var(--muted);padding:14px 18px 6px;background:var(--surface-alt)}
   .proj-list{display:flex;flex-direction:column}
   .proj-list-item{display:flex;align-items:center;justify-content:space-between;gap:14px;
     width:100%;text-align:left;font:inherit;appearance:none;-webkit-appearance:none;background:none;
@@ -278,6 +283,10 @@
     line-height:1.45;margin:10px 0;cursor:pointer}
   .fchk input{margin-top:2px;width:16px;height:16px;accent-color:var(--accent);flex:none;cursor:pointer}
   .mhint{font-family:var(--label);font-size:13px;color:var(--muted);margin:2px 0 6px}
+  .flag-override-row{display:flex;flex-wrap:wrap;gap:16px 24px}
+  .fo-item{display:flex;flex-direction:column;gap:5px;font-family:var(--label);font-size:12.5px;
+    font-weight:600;color:var(--ink);width:auto}
+  .fo-item select{width:auto;min-width:130px}
   .group-block{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-family:var(--label);font-size:13px}
   .glink{display:inline-flex;align-items:center;gap:2px;background:var(--surface);border:1px solid var(--line-strong);
     border-radius:6px;padding:3px 6px 3px 9px;color:var(--ink)}
@@ -551,6 +560,16 @@ Draft:Some draft article"></textarea>
         </details>
       </div>
     </div>
+    <div class="mrow">
+      <div class="mfield grow" style="flex-basis:100%">
+        <label>Attention flags for this project <span class="help">leave on "team default" to follow Flag settings; override just for this project if needed</span></label>
+        <div class="flag-override-row">
+          <label class="fo-item">Decision needed<select id="foDecide"><option value="">Team default</option><option value="on">On</option><option value="off">Off</option></select></label>
+          <label class="fo-item">Editor replied<select id="foReplied"><option value="">Team default</option><option value="on">On</option><option value="off">Off</option></select></label>
+          <label class="fo-item">Long wait<select id="foWait"><option value="">Team default</option><option value="on">On</option><option value="off">Off</option></select></label>
+        </div>
+      </div>
+    </div>
     <div class="mactions">
       <button id="saveBtn" type="button">Save &amp; close</button>
       <button class="ghost" id="doneBtn" type="button">Done</button>
@@ -563,7 +582,7 @@ Draft:Some draft article"></textarea>
 
   <section class="manage internalOnly" id="flagPanel" hidden>
     <h2>Flag settings</h2>
-    <p class="mhint">Choose which situations raise a "Needs attention" flag. Applies to the whole team.</p>
+    <p class="mhint">Choose which situations raise a "Needs attention" flag. This is the team-wide default; override it for one project in that project's settings.</p>
     <label class="fchk"><input type="checkbox" id="fcDecide"> <span><strong>Decision needed</strong> &mdash; a partial or declined request you haven't marked resolved or still-pursuing</span></label>
     <label class="fchk"><input type="checkbox" id="fcReplied"> <span><strong>Editor replied</strong> &mdash; an editor responded and the ball is in your court</span></label>
     <label class="fchk"><input type="checkbox" id="fcWait"> <span><strong>Long wait</strong> &mdash; a request has been awaiting an editor for 30+ days</span></label>
@@ -684,7 +703,7 @@ const store = (() => {
   // survive a reload in hosted mode too, not just standalone.
   let ls = false;
   if (!clientBaked) { try { localStorage.setItem("__t", "1"); localStorage.removeItem("__t"); ls = true; } catch (e) {} }
-  const LOCAL_ONLY = new Set(["wrt.current.v2", "wrt.whoami", "wrt.ownerfilter"]);         // per-browser, never shared
+  const LOCAL_ONLY = new Set(["wrt.current.v2", "wrt.whoami", "wrt.ownerfilter", "wrt.listsort"]);         // per-browser, never shared
 
   let pending = {}, timer = null, flushing = false;
   function schedule() { if (remote && !timer) timer = setTimeout(flush, 400); }
@@ -876,7 +895,7 @@ function firstTs(body){
   return first;
 }
 function daysAgo(d){ return d?Math.floor((Date.now()-d.getTime())/86400000):null; }
-const BUILD_TAG="2026-08-31.3";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
+const BUILD_TAG="2026-08-31.5";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
 /* elapsed time since a Date, split into hours/days for display */
 function elapsed(d){
   if(!d) return null;
@@ -1289,10 +1308,20 @@ function itemKey(it){ return it.kind==="manual"?("m:"+it.id):(it.grouped?("g:"+i
 function itemResolved(it){ return it.ours!==false && (it.status==="implemented" || it.resolved===true); }
 /* which situations raise a "Needs attention" flag (team-wide, toggleable) */
 function flagCfg(){ try{ return Object.assign({decide:true,replied:true,wait:true}, JSON.parse(store.get("wrt.flagcfg")||"{}")); }catch(e){ return {decide:true,replied:true,wait:true}; } }
+/* the team default, with the current project's own overrides (if any) applied on top */
+function effectiveFlagCfg(){
+  const base=flagCfg();
+  const ov=(lastData && lastData.proj && lastData.proj.flagOverrides) || {};
+  return {
+    decide: typeof ov.decide==="boolean" ? ov.decide : base.decide,
+    replied: typeof ov.replied==="boolean" ? ov.replied : base.replied,
+    wait: typeof ov.wait==="boolean" ? ov.wait : base.wait
+  };
+}
 function flagSig(it){ return String(it.latest ? it.latest.getTime() : 0); }
 function attentionFlags(it){
   if(isClient() || it.ours===false || it.kind!=="wiki" || !it.dismissBase) return [];
-  const cfg=flagCfg(), out=[];
+  const cfg=effectiveFlagCfg(), out=[];
   const sig=flagSig(it);
   if(cfg.decide && (it.status==="partial"||it.status==="declined") && !it.resolved && store.get(it.dismissBase+"::decide")!=="1")
     out.push({type:"decide",label:"Decision needed"});
@@ -1772,25 +1801,43 @@ function showProjectList(){
   lastData=null;
   current=-1; saveCfg();
   document.title="Request Tracker";
+  hideSettingsPanels(null);
   const ph=$("projHead"); if(ph) ph.hidden=true;
   $("stats").hidden=true; $("grid").hidden=true;
   const filterVal=store.get("wrt.ownerfilter")||"all";
-  const visible=projects.map((p,i)=>({name:p.name||"(unnamed)",i,p}))
-    .filter(o=>projectOwnerMatches(o.p,filterVal))
-    .sort((a,b)=>a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+  const sortBy=store.get("wrt.listsort")||"name";
+  const visible=projects.map((p,i)=>({name:p.name||"(unnamed)",i,p,owner:(p.owner||"").trim()}))
+    .filter(o=>projectOwnerMatches(o.p,filterVal));
+  const head='<div class="proj-list-head"><span class="proj-list-count">'+visible.length+' project'+(visible.length===1?"":"s")+'</span>'+
+    '<label class="tools">Sort by<select id="homeSortSel"><option value="name"'+(sortBy==="name"?" selected":"")+'>project name</option>'+
+    '<option value="owner"'+(sortBy==="owner"?" selected":"")+'>owner</option></select></label></div>';
   if(!visible.length){
     $("msg").innerHTML='<div class="panel"><div class="state"><strong>No projects match this filter</strong>'+
       '<div class="hint">Pick a different owner above, or add a new project.</div></div></div>';
   }else{
-    $("msg").innerHTML='<div class="panel"><div class="proj-list">'+
-      visible.map(o=>'<button class="proj-list-item" data-openproj="'+o.i+'" type="button">'+
-        '<span class="proj-list-name">'+esc(o.name)+'</span>'+
-        (o.p.owner?'<span class="proj-list-owner">'+esc(o.p.owner)+'</span>':'')+
-        '</button>').join("")+
-      '</div></div>';
+    const itemHTML=o=>'<button class="proj-list-item" data-openproj="'+o.i+'" type="button">'+
+      '<span class="proj-list-name">'+esc(o.name)+'</span>'+
+      (o.owner?'<span class="proj-list-owner">'+esc(o.owner)+'</span>':'')+
+      '</button>';
+    let body;
+    if(sortBy==="owner"){
+      const groups={};
+      visible.forEach(o=>{ const key=o.owner||"\uFFFFUnassigned"; (groups[key]=groups[key]||[]).push(o); });
+      const groupKeys=Object.keys(groups).sort((a,b)=>a.toLowerCase().localeCompare(b.toLowerCase()));
+      body=groupKeys.map(key=>{
+        const label=key==="\uFFFFUnassigned"?"Unassigned":key;
+        const items=groups[key].sort((a,b)=>a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+        return '<div class="proj-group-head">'+esc(label)+'</div>'+items.map(itemHTML).join("");
+      }).join("");
+    }else{
+      body=visible.slice().sort((a,b)=>a.name.toLowerCase().localeCompare(b.name.toLowerCase())).map(itemHTML).join("");
+    }
+    $("msg").innerHTML='<div class="panel">'+head+'<div class="proj-list">'+body+'</div></div>';
     $("msg").querySelectorAll("[data-openproj]").forEach(b=>b.addEventListener("click",()=>{
+      hideSettingsPanels(null);
       current=parseInt(b.dataset.openproj,10); saveCfg(); renderSelector(); loadProject();
     }));
+    const ss=$("homeSortSel"); if(ss) ss.addEventListener("change",()=>{ store.set("wrt.listsort", ss.value); showProjectList(); });
   }
   const sy=$("synced"); if(sy) sy.textContent="";
   const mb=$("manageBtn"),pb=$("previewBtn"); if(mb)mb.hidden=true; if(pb)pb.hidden=true;
@@ -1823,6 +1870,14 @@ function updateAgToggle(){
   const boxes=[...document.querySelectorAll("#fAgency input[type=checkbox]")];
   btn.textContent = (boxes.length>0 && boxes.every(c=>c.checked)) ? "select none" : "select all";
 }
+function fillFlagOverrides(fo){
+  const ov=fo||{};
+  const toVal=v=> v===true?"on" : v===false?"off" : "";
+  const dEl=$("foDecide"),rEl=$("foReplied"),wEl=$("foWait");
+  if(dEl) dEl.value=toVal(ov.decide);
+  if(rEl) rEl.value=toVal(ov.replied);
+  if(wEl) wEl.value=toVal(ov.wait);
+}
 function fillForm(){
   const p=projects[current]||{name:"",start:"",team:"",sources:[]};
   $("fName").value=p.name||""; $("fStart").value=p.start||"";
@@ -1833,7 +1888,18 @@ function fillForm(){
     '<label class="agchk"><input type="checkbox" data-user="'+esc(u)+'"'+(agSet.has(u.toLowerCase())?" checked":"")+"> "+esc(u)+"</label>"
   ).join("");
   updateAgToggle();
+  fillFlagOverrides(p.flagOverrides);
   $("fPages").value=(p.sources||[]).map(s=>s.title+(s.match?(" | "+s.match):"")).join("\n");
+}
+function readFlagOverrides(){
+  const fromVal=v=> v==="on"?true : v==="off"?false : null;
+  const dEl=$("foDecide"),rEl=$("foReplied"),wEl=$("foWait");
+  const out={};
+  const d=fromVal(dEl?dEl.value:""), r=fromVal(rEl?rEl.value:""), w=fromVal(wEl?wEl.value:"");
+  if(d!==null) out.decide=d;
+  if(r!==null) out.replied=r;
+  if(w!==null) out.wait=w;
+  return out;
 }
 function readForm(){
   const sources=$("fPages").value.split("\n").map(line=>{
@@ -1843,11 +1909,14 @@ function readForm(){
   }).filter(Boolean);
   const prev=projects[current]||{};
   const agency=[...document.querySelectorAll("#fAgency input[type=checkbox]")].filter(c=>c.checked).map(c=>c.dataset.user);
-  return {name:$("fName").value.trim()||"(unnamed)",start:$("fStart").value,owner:$("fOwner").value||"",team:$("fTeam").value.trim(),agency,sources,manual:prev.manual||[]};
+  return {name:$("fName").value.trim()||"(unnamed)",start:$("fStart").value,owner:$("fOwner").value||"",team:$("fTeam").value.trim(),agency,sources,flagOverrides:readFlagOverrides(),manual:prev.manual||[]};
 }
 
+function hideSettingsPanels(exceptId){
+  ["managePanel","teamPanel","flagPanel"].forEach(id=>{ if(id!==exceptId){ const el=$(id); if(el) el.hidden=true; } });
+}
 if(!isClient()){
-  $("manageBtn").addEventListener("click",()=>{const p=$("managePanel");p.hidden=!p.hidden;if(!p.hidden)fillForm();});
+  $("manageBtn").addEventListener("click",()=>{const p=$("managePanel");const opening=p.hidden;hideSettingsPanels("managePanel");p.hidden=!opening;if(opening)fillForm();});
   { const ag=$("agNoneBtn"); if(ag) ag.addEventListener("click",()=>{
     const boxes=[...document.querySelectorAll("#fAgency input[type=checkbox]")];
     const allChecked=boxes.length>0 && boxes.every(c=>c.checked);
@@ -1875,6 +1944,7 @@ if(!isClient()){
   });
   $("mFlags").addEventListener("click",()=>{
     closeMenu();
+    hideSettingsPanels("flagPanel");
     const cfg=flagCfg();
     $("fcDecide").checked=cfg.decide!==false; $("fcReplied").checked=cfg.replied!==false; $("fcWait").checked=cfg.wait!==false;
     $("flagPanel").hidden=false;
@@ -1894,7 +1964,7 @@ if(!isClient()){
       renderTeamPanel(); refreshTeamUI(); if(!$("managePanel").hidden) fillOwnerSelect(projects[current]&&projects[current].owner||"");
     }));
   }
-  { const mt=$("mTeam"); if(mt) mt.addEventListener("click",()=>{ closeMenu(); renderTeamPanel(); $("teamPanel").hidden=false; }); }
+  { const mt=$("mTeam"); if(mt) mt.addEventListener("click",()=>{ closeMenu(); hideSettingsPanels("teamPanel"); renderTeamPanel(); $("teamPanel").hidden=false; }); }
   { const tb=$("teamAddBtn"); if(tb) tb.addEventListener("click",()=>{
     const inp=$("teamNewName"), name=(inp.value||"").trim(); if(!name) return;
     const roster=getRoster();
@@ -2021,6 +2091,7 @@ function exportClientFile(){
   projClone.team=effectiveUsers(proj).join("\n"); // fold agency users in so the client file knows them
   delete projClone.agency;  // never ship the roster selection
   delete projClone.owner;   // internal staffing assignment, not for clients
+  delete projClone.flagOverrides;   // internal workflow tuning, not for clients
   stripCommentAuthorsForClient(projClone.manual); // who on our team wrote it is internal, not for clients
   const baked={client:true, ts:new Date().toISOString(), project:projClone, notes:{}, statuses:{}};
   store.keys("wrt.note::"+proj.name+"::").forEach(k=>{

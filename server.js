@@ -108,7 +108,7 @@ async function initDb() {
 // the team. Mirrors the client's own LOCAL_ONLY set; kept out of the shared
 // snapshot so one person's local UI state (last project, last filter, last
 // comment-signature pick) never leaks into what the team sees.
-const LOCAL_ONLY_KEYS = new Set(["wrt.current.v2", "wrt.whoami", "wrt.ownerfilter"]);
+const LOCAL_ONLY_KEYS = new Set(["wrt.current.v2", "wrt.whoami", "wrt.ownerfilter", "wrt.listsort"]);
 function isAppKey(k) { return k.indexOf("wrt.") === 0 && !LOCAL_ONLY_KEYS.has(k); }
 
 async function appSnapshot() {
@@ -147,6 +147,7 @@ async function buildBaked(projectName) {
   projClone.team = effectiveUsers(proj).join("\n"); // fold agency in so ownership computes
   delete projClone.agency;                          // never ship the roster selection
   delete projClone.owner;                            // internal staffing assignment, not for clients
+  delete projClone.flagOverrides;                     // internal workflow tuning, not for clients
   stripCommentAuthors(projClone.manual);             // "who on our team wrote this" is internal, not for clients
   const baked = { client: true, ts: new Date().toISOString(), project: projClone, notes: {}, statuses: {} };
   baked.notes = scrubNotesAuthors(await db.getPrefix("wrt.note::" + projectName + "::"));
