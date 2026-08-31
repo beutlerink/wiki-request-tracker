@@ -59,10 +59,12 @@
   #projHead .watching{color:var(--muted);font-size:13px;margin-top:6px}
   #projHead .watching b{color:var(--ink);font-weight:600}
   #projHead .desc{font-family:var(--label);color:var(--ink);font-size:14px;margin-top:8px;max-width:70ch;line-height:1.5}
-  .back-link{display:inline-flex;align-items:center;gap:4px;margin-bottom:8px;font:inherit;
-    font-family:var(--label);font-size:12.5px;font-weight:600;color:var(--muted);
-    background:none;border:none;cursor:pointer;padding:0}
-  .back-link:hover{color:var(--accent)}
+  .back-link{display:inline-flex;align-items:center;gap:6px;margin-bottom:10px;font:inherit;
+    font-family:var(--label);font-size:13px;font-weight:600;color:var(--accent);
+    appearance:none;-webkit-appearance:none;background:var(--surface-alt);
+    border:1px solid var(--line-strong);border-radius:999px;cursor:pointer;padding:6px 14px 6px 12px}
+  .back-link:hover,.back-link:focus-visible{background:var(--surface-alt);border-color:var(--accent);color:var(--accent);outline:none}
+  .back-link:active{background:var(--surface-alt)}
   .proj-list{display:flex;flex-direction:column}
   .proj-list-item{display:flex;align-items:center;justify-content:space-between;gap:14px;
     width:100%;text-align:left;font:inherit;appearance:none;-webkit-appearance:none;background:none;
@@ -457,6 +459,8 @@
     <div class="menu-wrap internalOnly" id="menuWrap">
       <button class="ghost" id="menuBtn" type="button" aria-haspopup="true" aria-expanded="false" title="Menu">&#9776;</button>
       <div class="menu-drop" id="menuDrop" hidden>
+        <button class="menu-item" id="mAllProjects" type="button">All projects</button>
+        <div class="menu-sep"></div>
         <button class="menu-item" id="mFlags" type="button">Flag settings</button>
         <button class="menu-item" id="mTeam" type="button">Team members</button>
         <div class="menu-sep"></div>
@@ -876,7 +880,7 @@ function firstTs(body){
   return first;
 }
 function daysAgo(d){ return d?Math.floor((Date.now()-d.getTime())/86400000):null; }
-const BUILD_TAG="2026-08-31.1";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
+const BUILD_TAG="2026-08-31.2";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
 /* elapsed time since a Date, split into hours/days for display */
 function elapsed(d){
   if(!d) return null;
@@ -1912,6 +1916,7 @@ if(!isClient()){
   { const of=$("ownerFilter"); if(of) of.addEventListener("change",()=>{ store.set("wrt.ownerfilter", of.value); showProjectList(); }); }
   { const bl=$("backToListBtn"); if(bl) bl.addEventListener("click",showProjectList); }
   function closeMenu(){ const d=$("menuDrop"); if(d){ d.hidden=true; $("menuBtn").setAttribute("aria-expanded","false"); } }
+  { const ap=$("mAllProjects"); if(ap) ap.addEventListener("click",()=>{ closeMenu(); showProjectList(); }); }
   $("menuBtn").addEventListener("click",e=>{ e.stopPropagation(); const d=$("menuDrop"); const show=d.hidden; d.hidden=!show; $("menuBtn").setAttribute("aria-expanded",String(show)); });
   document.addEventListener("click",e=>{ const w=$("menuWrap"); if(w && !w.contains(e.target)) closeMenu(); });
   $("importFile").addEventListener("change",e=>{
