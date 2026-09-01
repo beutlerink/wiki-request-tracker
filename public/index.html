@@ -919,7 +919,7 @@ function firstTs(body){
   return first;
 }
 function daysAgo(d){ return d?Math.floor((Date.now()-d.getTime())/86400000):null; }
-const BUILD_TAG="2026-08-31.13";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
+const BUILD_TAG="2026-09-01.1";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
 /* elapsed time since a Date, split into hours/days for display */
 function elapsed(d){
   if(!d) return null;
@@ -2173,7 +2173,7 @@ async function internalBoot(fromSaved){
 if(!isClient()){
   const lb=$("loginBtn"); if(lb) lb.addEventListener("click",submitLogin);
   ["loginUser","loginPass"].forEach(id=>{ const el=$(id); if(el) el.addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); submitLogin(); } }); });
-  const bb=$("brandBtn"); if(bb){ bb.classList.add("is-link"); bb.title="Back to all projects"; bb.addEventListener("click",showProjectList); }
+  const bb=$("brandBtn"); if(bb){ bb.classList.add("is-link"); bb.addEventListener("click",showProjectList); }
 }else{
   const bb=$("brandBtn"); if(bb) bb.tabIndex=-1;   // branding only for clients; nothing to navigate to
 }

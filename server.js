@@ -22,7 +22,7 @@ const INTERNAL_USER = process.env.INTERNAL_USER || "";
 const INTERNAL_PASS = process.env.INTERNAL_PASS || "";
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || "";
 const AI_MODEL = process.env.AI_MODEL || "claude-haiku-4-5-20251001";
-const AI_PROMPT_VERSION = "v4";  // bump to invalidate cached AI reads after a prompt change
+const AI_PROMPT_VERSION = "v5";  // bump to invalidate cached AI reads after a prompt change
 const AI_API_URL = process.env.AI_API_URL || "https://api.anthropic.com/v1/messages";
 
 const INDEX_HTML = fs.readFileSync(path.join(__dirname, "public", "index.html"), "utf8");
@@ -216,11 +216,18 @@ const AI_SYSTEM =
   "    - declined: the request was rejected or closed without the changes\n" +
   "    - monitored: an open RfC / requested move / broader discussion rather than a simple accept/decline, OR a " +
   "discussion among editors that does not involve any of the agency's accounts at all.\n" +
+  "If Beutler and an editor negotiated a different resolution than the original request (for example, an editor " +
+  "declined the original ask but implemented an alternative Beutler agreed to), and that alternative was fully " +
+  "carried out, use implemented \u2014 the matter is resolved, just not exactly as first proposed. Do not use partial " +
+  "for this; partial means part of the SAME request was done, not that a different request was fulfilled in full.\n" +
   "  summary: ONE plain sentence (max 22 words) describing the CURRENT state of the discussion, i.e. what has " +
   "happened most recently, not a restatement of the request title. Refer to any of the agency's own accounts as " +
   "'Beutler'. Refer to other participants by their role ('an editor') or their username. Do not use first person. " +
   "If none of the agency's accounts appear in the discussion at all, describe neutrally what the editors are " +
-  "discussing, without implying Beutler made any request.\n" +
+  "discussing, without implying Beutler made any request. If the actual outcome differs from the original request " +
+  "(a negotiated alternative, a partial fix, or a claim that doesn't match what the discussion shows), the summary " +
+  "must say what actually happened or was implemented, not just restate the original ask \u2014 e.g. 'Editor removed the " +
+  "disputed content instead of updating it, per Beutler's follow-up suggestion' rather than 'Beutler asked to update X.'\n" +
   "The summary is shown to non-technical clients, so write in plain, natural English. Never include wiki markup, " +
   "template names or syntax, code, field names, URLs, or empty quotation marks. Describe what is being changed in " +
   "ordinary words (for example 'update the headquarters location and brand list'), not by quoting the raw request.\n" +
