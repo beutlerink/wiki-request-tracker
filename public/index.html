@@ -922,7 +922,7 @@ function firstTs(body){
   return first;
 }
 function daysAgo(d){ return d?Math.floor((Date.now()-d.getTime())/86400000):null; }
-const BUILD_TAG="2026-09-02.2";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
+const BUILD_TAG="2026-09-02.3";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
 /* elapsed time since a Date, split into hours/days for display */
 function elapsed(d){
   if(!d) return null;
@@ -1296,6 +1296,10 @@ function collapseGroups(items){
     rep.grouped=true;
     rep.locations=members.map(m=>({label:m.label, url:m.url, hideKey:m.hideKey}));
     rep.ours=members.some(m=>m.ours!==false);
+    // last activity should reflect the most recent post across ALL grouped pages, not just
+    // whichever member happened to be picked as the representative by status priority
+    rep.latest = members.reduce((max,m)=> (m.latest && (!max || m.latest>max)) ? m.latest : max, null);
+    rep.first = members.reduce((min,m)=> (m.first && (!min || m.first<min)) ? m.first : min, null);
     out.push(rep);
   });
   return out;
