@@ -697,6 +697,12 @@ const STATUS = {
   monitored:{label:"Under discussion", cls:"posted"}
 };
 const ORDER={awaiting:0,posted:1,replied:2,partial:3,monitored:4,upcoming:5,notposted:6,onhold:7,implemented:8,declined:9};
+/* sort rank: anything counted as "resolved" (implemented, or a partial/declined you've
+   marked done) sorts after everything still open, regardless of its raw status label */
+function sortRank(it){
+  const base = ORDER[it.status]!==undefined ? ORDER[it.status] : 50;
+  return itemResolved(it) ? 100+base : base;
+}
 const WITH_EDITORS={awaiting:1,posted:1,replied:1};
 const PIPELINE={notposted:1,upcoming:1,onhold:1};
 /* progress buckets: partition every "ours" status so the bar always sums to the total */
@@ -922,7 +928,7 @@ function firstTs(body){
   return first;
 }
 function daysAgo(d){ return d?Math.floor((Date.now()-d.getTime())/86400000):null; }
-const BUILD_TAG="2026-09-02.3";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
+const BUILD_TAG="2026-09-02.4";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
 /* elapsed time since a Date, split into hours/days for display */
 function elapsed(d){
   if(!d) return null;
@@ -1636,10 +1642,10 @@ function render(){
   }
   function passFilter(i){ if(curFilter==="attention") return attentionFlags(i).length>0; return curFilter==="all" ? true : i.status===curFilter; }
   function cmp(a,b){
-    if(mode==="custom") return (orderIdx(itemKey(a))-orderIdx(itemKey(b)))||(ORDER[a.status]-ORDER[b.status]);
+    if(mode==="custom") return (orderIdx(itemKey(a))-orderIdx(itemKey(b)))||(sortRank(a)-sortRank(b));
     if(mode==="waiting"){ const ra=openSet[a.status]?0:1, rb=openSet[b.status]?0:1; if(ra!==rb)return ra-rb; const fa=tval(a.first)||tval(a.latest), fb=tval(b.first)||tval(b.latest); if(!fa&&!fb)return 0; if(!fa)return 1; if(!fb)return -1; return fa-fb; }
     if(mode==="recent") return tval(b.latest)-tval(a.latest);
-    return (ORDER[a.status]-ORDER[b.status])||(tval(b.latest)-tval(a.latest));
+    return (sortRank(a)-sortRank(b))||(tval(b.latest)-tval(a.latest));
   }
   const ours=items.filter(i=>i.ours!==false && passFilter(i)).sort(cmp);
   const others=items.filter(i=>i.ours===false && passFilter(i)).sort(cmp);
