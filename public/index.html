@@ -41,6 +41,8 @@
   a:hover{text-decoration:underline}
   .wrap{max-width:1180px;margin:0 auto}
   body.client .internalOnly{display:none !important}
+  .clientOnly{display:none}
+  body.client .clientOnly{display:inline-block}
 
   .brandbar{display:flex;align-items:center;gap:10px;margin-bottom:14px;
     appearance:none;-webkit-appearance:none;background:none;border:none;padding:0;font:inherit;text-align:left}
@@ -507,6 +509,7 @@
     <button class="ghost internalOnly" id="previewBtn" type="button">Preview client view</button>
     <button class="ghost internalOnly" id="newProjBtn" type="button" title="Add a new project">+ New project</button>
     <span class="savepill internalOnly" id="saveState" hidden></span>
+    <button class="ghost clientOnly" id="clientPdfBtn" type="button">Save as PDF</button>
     <span class="synced" id="synced"></span>
   </div>
 
@@ -928,7 +931,7 @@ function firstTs(body){
   return first;
 }
 function daysAgo(d){ return d?Math.floor((Date.now()-d.getTime())/86400000):null; }
-const BUILD_TAG="2026-09-02.4";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
+const BUILD_TAG="2026-09-02.5";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
 /* elapsed time since a Date, split into hours/days for display */
 function elapsed(d){
   if(!d) return null;
@@ -2039,6 +2042,9 @@ if(!isClient()){
   { const ca=$("collapseAllBtn"); if(ca) ca.addEventListener("click",()=>{ expandedSet.clear(); render(); }); }
   $("clientFileBtn").addEventListener("click",exportClientFile);
   if(store.remote){ const cl=$("clientLinkBtn"); if(cl){ cl.hidden=false; cl.addEventListener("click",copyClientLink); } }
+}
+if(isClient()){
+  const cpb=$("clientPdfBtn"); if(cpb) cpb.addEventListener("click",exportClientFile);
 }
 
 async function copyClientLink(){
