@@ -1157,7 +1157,7 @@ async function loadProject(){
     if(data.resolved && normalizeTitle(data.resolved)!==normalizeTitle(title)) moves.push({from:title,to:data.resolved});
 
     data.sections.forEach(sec=>{
-      if(!anyKw(sec.title, kws))return;
+      if(!anyKw(sec.title, kws) && !anyKw(sec.body, kws))return;
       if(start && sec.latest && sec.latest<start)return;
       requests.push({source:title,article,label:sourceLabel(title),heading:sec.title,anchor:sec.anchor,
         type:sec.type,base:sec.base,latest:sec.latest,first:sec.first,body:sec.body,
