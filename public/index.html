@@ -45,6 +45,7 @@
   .brandbar{display:flex;align-items:center;gap:10px;margin-bottom:14px;
     appearance:none;-webkit-appearance:none;background:none;border:none;padding:0;font:inherit;text-align:left}
   .brandbar.is-link{cursor:pointer}
+  .brandbar:hover,.brandbar:active,.brandbar:focus-visible{background:none}
   .brandbar:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
   .brandbar img{height:30px;width:auto;display:block}
   .brandbar img[hidden]{display:none}
@@ -193,7 +194,7 @@
   .tabs{display:flex;flex-wrap:wrap;gap:6px;padding:12px 18px;border-bottom:1px solid var(--line)}
   .tab{font-family:var(--label);font-size:12px;font-weight:600;color:var(--muted);background:var(--surface-alt);
     border:1px solid var(--line);border-radius:999px;padding:4px 12px;cursor:pointer;white-space:nowrap}
-  .tab:hover{border-color:var(--line-strong)}
+  .tab:hover{border-color:var(--line-strong);background:var(--surface-alt)}
   .tab.active{background:var(--ink);color:#fff;border-color:var(--ink)}
   .tab .tct{opacity:.7;font-weight:500;margin-left:3px}
   .panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
@@ -218,6 +219,7 @@
   .comment .cmt-date{font-family:var(--label);font-size:11px;color:var(--muted)}
   .comment .cmt-actions{white-space:nowrap;flex:none}
   .clink{background:none;border:none;color:var(--accent);font:inherit;font-size:12px;font-weight:600;cursor:pointer;padding:0 3px}
+  .clink:hover{background:none;text-decoration:underline}
   .clink:hover{text-decoration:underline}
   .comment.editing{background:transparent;border-left-color:var(--accent);flex-direction:row;align-items:center}
   .cmt-edit{flex:1;font:inherit;font-size:13.5px;padding:6px 8px;border:1px solid var(--line-strong);border-radius:6px;background:var(--surface);color:var(--ink)}
@@ -307,7 +309,7 @@
   .glink{display:inline-flex;align-items:center;gap:2px;background:var(--surface);border:1px solid var(--line-strong);
     border-radius:6px;padding:3px 6px 3px 9px;color:var(--ink)}
   .gx{font:inherit;font-size:14px;line-height:1;border:none;background:none;color:var(--muted);cursor:pointer;padding:0 3px}
-  .gx:hover{color:var(--declined-ink)}
+  .gx:hover{color:var(--declined-ink);background:none}
   .team-list{display:flex;flex-direction:column;gap:6px;margin:8px 0 14px}
   .team-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 12px;
     border:1px solid var(--line);border-radius:8px;background:var(--surface-alt);font-family:var(--label);font-size:14px}
@@ -323,6 +325,7 @@
   .c-act{display:flex;gap:8px;align-items:center;justify-content:flex-end}
   .c-act .cnum{font-size:11px;color:var(--muted);white-space:nowrap}
   .cbtn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:2px 3px;line-height:1;text-decoration:none}
+  .cbtn:hover{background:none;color:var(--accent)}
   .cbtn:hover{color:var(--accent)}
   .tpanel{padding:8px 18px 16px;border-bottom:1px solid var(--line);background:var(--surface-alt)}
   .d-analysis{font-size:13px;color:var(--ink);line-height:1.5;margin:2px 0 10px}
@@ -919,7 +922,7 @@ function firstTs(body){
   return first;
 }
 function daysAgo(d){ return d?Math.floor((Date.now()-d.getTime())/86400000):null; }
-const BUILD_TAG="2026-09-01.1";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
+const BUILD_TAG="2026-09-02.2";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
 /* elapsed time since a Date, split into hours/days for display */
 function elapsed(d){
   if(!d) return null;
