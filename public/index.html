@@ -931,7 +931,7 @@ function firstTs(body){
   return first;
 }
 function daysAgo(d){ return d?Math.floor((Date.now()-d.getTime())/86400000):null; }
-const BUILD_TAG="2026-09-02.5";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
+const BUILD_TAG="2026-09-03.1";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
 /* elapsed time since a Date, split into hours/days for display */
 function elapsed(d){
   if(!d) return null;
@@ -1324,7 +1324,7 @@ function renderHeader(proj){
     ? '<div style="margin-top:5px;color:var(--posted-ink);font-size:12.5px">Note: '+moves.map(m=>esc(m.from)+" now redirects to <b>"+esc(m.to)+"</b>").join("; ")+'. It still tracks fine; update the title when convenient.</div>'
     : "";
   $("watching").innerHTML = (isClient()
-    ? "Live status of your Wikipedia requests, refreshed automatically."
+    ? "Live status of your Wikipedia requests."
     : ("Watching "+parts.join(", ")+(proj.start?(" \u00b7 since "+esc(proj.start)):""))) + moveNote;
   // client-facing description removed; keep hidden
   const dEl=$("projDesc"); if(dEl) dEl.hidden=true;
@@ -1503,7 +1503,7 @@ function detailHTML(it, client, hiddenRow){
   const links=[];
   if(it.grouped && it.locations) it.locations.forEach(l=>links.push('<a href="'+l.url+'" target="_blank" rel="noopener">'+esc(l.label)+' \u2197</a>'));
   if(it.kind==="wiki" && it.confirm) links.push('<a style="color:var(--done-ink)" href="https://en.wikipedia.org/w/index.php?diff='+it.confirm.revid+'" target="_blank" rel="noopener">\u2713 see the article change \u2197</a>');
-  else if(it.kind==="wiki" && it.base==="done") links.push('<span style="color:var(--muted)">reported done; article edit not found in range</span>');
+  else if(!client && it.kind==="wiki" && it.base==="done") links.push('<span style="color:var(--muted)">reported done; article edit not found in range</span>');
   if(links.length) bits+='<div class="d-links">'+links.join("")+'</div>';
 
   if(!client && it.kind==="wiki"){
