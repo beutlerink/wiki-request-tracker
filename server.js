@@ -22,7 +22,7 @@ const INTERNAL_USER = process.env.INTERNAL_USER || "";
 const INTERNAL_PASS = process.env.INTERNAL_PASS || "";
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || "";
 const AI_MODEL = process.env.AI_MODEL || "claude-haiku-4-5-20251001";
-const AI_PROMPT_VERSION = "v5";  // bump to invalidate cached AI reads after a prompt change
+const AI_PROMPT_VERSION = "v6";  // bump to invalidate cached AI reads after a prompt change
 const AI_API_URL = process.env.AI_API_URL || "https://api.anthropic.com/v1/messages";
 
 const INDEX_HTML = fs.readFileSync(path.join(__dirname, "public", "index.html"), "utf8");
@@ -241,7 +241,7 @@ const AI_SYSTEM =
 function aiUserMsg(title, body, ours) {
   return "Agency ('our') accounts: " + ((ours && ours.length) ? ours.join(", ") : "(none specified)") +
     "\n\nRequest title: " + (title || "(untitled)") +
-    "\n\nDiscussion wikitext:\n" + String(body || "").slice(0, 8000);
+    "\n\nDiscussion wikitext:\n" + String(body || "").slice(0, 40000);
 }
 function stripFences(t) { return String(t || "").replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim(); }
 async function analyzeThread(title, body, ours) {
