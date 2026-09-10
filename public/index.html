@@ -920,20 +920,25 @@ function signatureEvents(body){
   return events;
 }
 /* every gap (in days) between one of our comments and the independent editor's next reply,
-   walking the discussion in order. If we post more than once before they reply, measures from
-   our LAST word, not our first, since that's the point we were actually waiting on them.
-   Treats the thread as roughly linear top-to-bottom, so a heavily re-threaded discussion
-   (someone replying out of order to an earlier comment) is an approximation, not exact. */
-function responseGaps(body, oursSet){
-  const events=signatureEvents(body);
-  const gaps=[]; let pendingOursTs=null;
+   walking a chronological event list in order. If we post more than once before they reply
+   -- including cross-posting the same ask to other pages -- measures from our FIRST unanswered
+   word in that streak, not our latest, since that's when the clock really started; a follow-up
+   or cross-post doesn't mean we weren't waiting since the original ask.
+   Takes a pre-built, already-sorted events array (see signatureEvents) rather than raw wikitext,
+   so callers can merge several cross-posted pages into one shared timeline before computing gaps.
+   Treats the conversation as roughly linear in the order comments were posted, so a heavily
+   re-threaded discussion (someone replying out of order to an earlier comment) is an
+   approximation, not exact. */
+function responseGaps(events, oursSet){
+  const gaps=[]; let anchorTs=null;
   events.forEach(ev=>{
     const isOurs=oursSet.has(ev.user.toLowerCase());
-    if(isOurs){ pendingOursTs=ev.t; }
-    else if(pendingOursTs!==null){
-      const days=(ev.t-pendingOursTs)/86400000;
+    if(isOurs){
+      if(anchorTs===null) anchorTs=ev.t;   // only the FIRST unanswered post anchors the wait; later ones don't move it
+    } else if(anchorTs!==null){
+      const days=(ev.t-anchorTs)/86400000;
       if(days>=0) gaps.push(days);
-      pendingOursTs=null;
+      anchorTs=null;
     }
   });
   return gaps;
@@ -957,7 +962,7 @@ function firstTs(body){
   return first;
 }
 function daysAgo(d){ return d?Math.floor((Date.now()-d.getTime())/86400000):null; }
-const BUILD_TAG="2026-09-03.2";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
+const BUILD_TAG="2026-09-10.1";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
 /* elapsed time since a Date, split into hours/days for display */
 function elapsed(d){
   if(!d) return null;
@@ -1623,16 +1628,27 @@ function render(){
   const hiddenItems=items.filter(i=>i.kind==="wiki" && hidden.has(i.hideKey));
   items=items.filter(i=>!(i.kind==="wiki" && hidden.has(i.hideKey)));
 
-  // average editor response time: computed from each raw source's own body, before grouping
-  // collapses cross-posted pages into one row and discards the non-representative bodies
+  // average editor response time: cross-posted pages sharing a group label are merged into
+  // one shared timeline first, since a follow-up nudge on another page is the same ask, not
+  // a new one -- computed from each raw source's own body, before grouping collapses
+  // cross-posted pages into one displayed row and discards the non-representative bodies
   if(!isClient()){
     const oursSet=new Set(effectiveUsers(proj).map(u=>u.toLowerCase()));
-    let gapSum=0, gapCount=0;
+    const groupedBodies={}, singles=[];
     items.forEach(it=>{
       if(it.kind==="wiki" && it.ours!==false && it.body){
-        responseGaps(it.body, oursSet).forEach(d=>{ gapSum+=d; gapCount++; });
+        if(it.group){ (groupedBodies[it.group]=groupedBodies[it.group]||[]).push(it.body); }
+        else singles.push(it.body);
       }
     });
+    let gapSum=0, gapCount=0;
+    function tally(events){ responseGaps(events, oursSet).forEach(d=>{ gapSum+=d; gapCount++; }); }
+    Object.values(groupedBodies).forEach(bodies=>{
+      const merged=[]; bodies.forEach(b=>merged.push(...signatureEvents(b)));
+      merged.sort((a,b)=>a.t-b.t);
+      tally(merged);
+    });
+    singles.forEach(b=>tally(signatureEvents(b)));
     const rgKey="wrt.respgap::"+proj.name;
     const newVal=JSON.stringify({sum:Math.round(gapSum*100)/100, count:gapCount});
     if(store.get(rgKey)!==newVal) store.set(rgKey, newVal);
