@@ -71,9 +71,11 @@
     border:1px solid var(--line-strong);border-radius:999px;cursor:pointer;padding:6px 14px 6px 12px}
   .back-link:hover,.back-link:focus-visible{background:var(--surface-alt);border-color:var(--accent);color:var(--accent);outline:none}
   .back-link:active{background:var(--surface-alt)}
-  .proj-list-head{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  .proj-list-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
     padding:14px 18px;border-bottom:1px solid var(--line)}
   .proj-list-count{font-family:var(--label);font-size:12.5px;color:var(--muted)}
+  .proj-list-respgap{font-family:var(--label);font-size:12.5px;color:var(--muted)}
+  .proj-list-respgap strong{color:var(--ink);font-weight:600}
   .proj-group-head{font-family:var(--label);font-size:11px;font-weight:700;letter-spacing:.06em;
     text-transform:uppercase;color:var(--muted);padding:14px 18px 6px;background:var(--surface-alt)}
   .proj-list{display:flex;flex-direction:column}
@@ -359,10 +361,12 @@
   .req.sec-hidden{opacity:.7}
   .stnote{font-size:12px;color:var(--declined-ink);margin:-8px 0 18px}
   .prog-panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:20px}
-  .prog-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+  .prog-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
   .prog-num{font-family:var(--serif);font-size:26px;font-weight:600;color:var(--done-ink);line-height:1}
   .prog-num .prog-lab{font-family:var(--label);font-size:14px;font-weight:500;color:var(--muted)}
   .prog-last{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+  .prog-respgap{font-family:var(--label);font-size:12.5px;color:var(--muted);margin-top:4px}
+  .prog-respgap strong{color:var(--ink);font-weight:600}
   .prog-bar{display:flex;height:12px;border-radius:6px;overflow:hidden;margin:13px 0 11px;background:var(--idle-bg)}
   .prog-seg{height:100%}
   .prog-seg+.prog-seg{box-shadow:inset 1px 0 0 rgba(255,255,255,.6)}
@@ -620,7 +624,10 @@ Draft:Some draft article"></textarea>
 
   <div class="prog-panel" id="stats" hidden>
     <div class="prog-head">
-      <div class="prog-num"><span id="stProg">&mdash;</span> <span class="prog-lab">resolved</span></div>
+      <div>
+        <div class="prog-num"><span id="stProg">&mdash;</span> <span class="prog-lab">resolved</span></div>
+        <div class="prog-respgap internalOnly" id="respGapLine" hidden></div>
+      </div>
       <div class="prog-last internalOnly" id="stLast"></div>
     </div>
     <div class="prog-bar" id="progSeg"></div>
@@ -912,6 +919,25 @@ function signatureEvents(body){
   events.sort((a,b)=>a.t-b.t);
   return events;
 }
+/* every gap (in days) between one of our comments and the independent editor's next reply,
+   walking the discussion in order. If we post more than once before they reply, measures from
+   our LAST word, not our first, since that's the point we were actually waiting on them.
+   Treats the thread as roughly linear top-to-bottom, so a heavily re-threaded discussion
+   (someone replying out of order to an earlier comment) is an approximation, not exact. */
+function responseGaps(body, oursSet){
+  const events=signatureEvents(body);
+  const gaps=[]; let pendingOursTs=null;
+  events.forEach(ev=>{
+    const isOurs=oursSet.has(ev.user.toLowerCase());
+    if(isOurs){ pendingOursTs=ev.t; }
+    else if(pendingOursTs!==null){
+      const days=(ev.t-pendingOursTs)/86400000;
+      if(days>=0) gaps.push(days);
+      pendingOursTs=null;
+    }
+  });
+  return gaps;
+}
 function starterOf(body){ const ev=signatureEvents(body); return ev.length?ev[0].user:""; }
 function lastSignerOf(body){ const ev=signatureEvents(body); return ev.length?ev[ev.length-1].user:""; }
 function latestTs(body){
@@ -931,7 +957,7 @@ function firstTs(body){
   return first;
 }
 function daysAgo(d){ return d?Math.floor((Date.now()-d.getTime())/86400000):null; }
-const BUILD_TAG="2026-09-03.1";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
+const BUILD_TAG="2026-09-03.2";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
 /* elapsed time since a Date, split into hours/days for display */
 function elapsed(d){
   if(!d) return null;
@@ -1596,6 +1622,29 @@ function render(){
   let items=buildItems();
   const hiddenItems=items.filter(i=>i.kind==="wiki" && hidden.has(i.hideKey));
   items=items.filter(i=>!(i.kind==="wiki" && hidden.has(i.hideKey)));
+
+  // average editor response time: computed from each raw source's own body, before grouping
+  // collapses cross-posted pages into one row and discards the non-representative bodies
+  if(!isClient()){
+    const oursSet=new Set(effectiveUsers(proj).map(u=>u.toLowerCase()));
+    let gapSum=0, gapCount=0;
+    items.forEach(it=>{
+      if(it.kind==="wiki" && it.ours!==false && it.body){
+        responseGaps(it.body, oursSet).forEach(d=>{ gapSum+=d; gapCount++; });
+      }
+    });
+    const rgKey="wrt.respgap::"+proj.name;
+    const newVal=JSON.stringify({sum:Math.round(gapSum*100)/100, count:gapCount});
+    if(store.get(rgKey)!==newVal) store.set(rgKey, newVal);
+    const rgLine=$("respGapLine");
+    if(rgLine){
+      if(gapCount){ rgLine.hidden=false; rgLine.innerHTML="Avg. editor response: <strong>"+(gapSum/gapCount).toFixed(1)+" day"+((gapSum/gapCount).toFixed(1)==="1.0"?"":"s")+"</strong>"; }
+      else { rgLine.hidden=true; }
+    }
+  }else{
+    const rgLine=$("respGapLine"); if(rgLine) rgLine.hidden=true;
+  }
+
   items=collapseGroups(items);
 
   const oursItems=items.filter(i=>i.ours!==false);
@@ -1821,7 +1870,18 @@ function showProjectList(){
   $("stats").hidden=true; $("grid").hidden=true;
   const sortBy=store.get("wrt.listsort")||"name";
   const visible=projects.map((p,i)=>({name:p.name||"(unnamed)",i,p,owner:(p.owner||"").trim()}));
-  const head='<div class="proj-list-head"><span class="proj-list-count">'+visible.length+' project'+(visible.length===1?"":"s")+'</span>'+
+  let respGapHtml="";
+  if(!isClient()){
+    let sum=0,count=0;
+    store.keys("wrt.respgap::").forEach(k=>{
+      try{ const v=JSON.parse(store.get(k)||"{}"); if(v.count){ sum+=v.sum; count+=v.count; } }catch(e){}
+    });
+    if(count){
+      const avg=(sum/count).toFixed(1);
+      respGapHtml='<span class="proj-list-respgap">Avg. editor response across all projects: <strong>'+avg+' day'+(avg==="1.0"?"":"s")+'</strong></span>';
+    }
+  }
+  const head='<div class="proj-list-head"><span class="proj-list-count">'+visible.length+' project'+(visible.length===1?"":"s")+'</span>'+respGapHtml+
     '<label class="tools">Sort by<select id="homeSortSel"><option value="name"'+(sortBy==="name"?" selected":"")+'>project name</option>'+
     '<option value="owner"'+(sortBy==="owner"?" selected":"")+'>owner</option></select></label></div>';
   if(!visible.length){
