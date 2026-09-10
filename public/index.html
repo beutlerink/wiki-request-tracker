@@ -365,8 +365,9 @@
   .prog-num{font-family:var(--serif);font-size:26px;font-weight:600;color:var(--done-ink);line-height:1}
   .prog-num .prog-lab{font-family:var(--label);font-size:14px;font-weight:500;color:var(--muted)}
   .prog-last{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
-  .prog-respgap{font-family:var(--label);font-size:12.5px;color:var(--muted);margin-top:4px}
+  .prog-respgap{font-family:var(--label);font-size:12.5px;color:var(--muted);margin-top:4px;cursor:help}
   .prog-respgap strong{color:var(--ink);font-weight:600}
+  .resp-gap-hint{font-size:11px;color:var(--muted);opacity:.75}
   .prog-bar{display:flex;height:12px;border-radius:6px;overflow:hidden;margin:13px 0 11px;background:var(--idle-bg)}
   .prog-seg{height:100%}
   .prog-seg+.prog-seg{box-shadow:inset 1px 0 0 rgba(255,255,255,.6)}
@@ -962,7 +963,7 @@ function firstTs(body){
   return first;
 }
 function daysAgo(d){ return d?Math.floor((Date.now()-d.getTime())/86400000):null; }
-const BUILD_TAG="2026-09-10.1";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
+const BUILD_TAG="2026-09-10.2";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
 /* elapsed time since a Date, split into hours/days for display */
 function elapsed(d){
   if(!d) return null;
@@ -1634,28 +1635,37 @@ function render(){
   // cross-posted pages into one displayed row and discards the non-representative bodies
   if(!isClient()){
     const oursSet=new Set(effectiveUsers(proj).map(u=>u.toLowerCase()));
-    const groupedBodies={}, singles=[];
+    const groupedItems={}, singles=[];
     items.forEach(it=>{
       if(it.kind==="wiki" && it.ours!==false && it.body){
-        if(it.group){ (groupedBodies[it.group]=groupedBodies[it.group]||[]).push(it.body); }
-        else singles.push(it.body);
+        if(it.group){ (groupedItems[it.group]=groupedItems[it.group]||[]).push(it); }
+        else singles.push(it);
       }
     });
     let gapSum=0, gapCount=0;
-    function tally(events){ responseGaps(events, oursSet).forEach(d=>{ gapSum+=d; gapCount++; }); }
-    Object.values(groupedBodies).forEach(bodies=>{
-      const merged=[]; bodies.forEach(b=>merged.push(...signatureEvents(b)));
+    const breakdown=[];   // {label, gaps:[days,...]} -- for the "show your work" tooltip
+    function tally(events, label){
+      const gaps=responseGaps(events, oursSet);
+      if(gaps.length){ breakdown.push({label, gaps}); gaps.forEach(d=>{ gapSum+=d; gapCount++; }); }
+    }
+    Object.keys(groupedItems).forEach(gk=>{
+      const members=groupedItems[gk];
+      const merged=[]; members.forEach(m=>merged.push(...signatureEvents(m.body)));
       merged.sort((a,b)=>a.t-b.t);
-      tally(merged);
+      tally(merged, members[0].heading+" ("+members.length+" pages)");
     });
-    singles.forEach(b=>tally(signatureEvents(b)));
+    singles.forEach(it=>{ tally(signatureEvents(it.body), it.heading); });
     const rgKey="wrt.respgap::"+proj.name;
     const newVal=JSON.stringify({sum:Math.round(gapSum*100)/100, count:gapCount});
     if(store.get(rgKey)!==newVal) store.set(rgKey, newVal);
     const rgLine=$("respGapLine");
     if(rgLine){
-      if(gapCount){ rgLine.hidden=false; rgLine.innerHTML="Avg. editor response: <strong>"+(gapSum/gapCount).toFixed(1)+" day"+((gapSum/gapCount).toFixed(1)==="1.0"?"":"s")+"</strong>"; }
-      else { rgLine.hidden=true; }
+      if(gapCount){
+        rgLine.hidden=false;
+        rgLine.innerHTML="Avg. editor response: <strong>"+(gapSum/gapCount).toFixed(1)+" day"+((gapSum/gapCount).toFixed(1)==="1.0"?"":"s")+"</strong> <span class=\"resp-gap-hint\">(hover to see the gaps)</span>";
+        const detail=breakdown.map(b=>b.label+": "+b.gaps.map(d=>d.toFixed(1)).join(", ")+" day"+(b.gaps.length===1&&b.gaps[0].toFixed(1)==="1.0"?"":"s")).join("\n");
+        rgLine.title="Based on "+gapCount+" measured repl"+(gapCount===1?"y":"ies")+":\n"+detail;
+      } else { rgLine.hidden=true; rgLine.title=""; }
     }
   }else{
     const rgLine=$("respGapLine"); if(rgLine) rgLine.hidden=true;
