@@ -77,7 +77,9 @@
   .proj-group-head{font-family:var(--label);font-size:11px;font-weight:700;letter-spacing:.06em;
     text-transform:uppercase;color:var(--muted);padding:14px 18px 6px;background:var(--surface-alt)}
 
-  .stats-page{display:flex;flex-direction:column;gap:20px}
+  .stats-page{display:flex;flex-direction:column;gap:16px}
+  .stats-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .stats-count{font-family:var(--label);font-size:12.5px;color:var(--muted)}
   .stats-summary{padding:18px 20px}
   .stats-headline{font-family:var(--serif);font-size:20px;font-weight:600}
   .stats-headline strong{color:var(--done-ink)}
@@ -87,21 +89,22 @@
   .stats-project-row:last-child{border-bottom:none}
   .stats-toggle{display:flex;align-items:center;gap:10px;width:100%;text-align:left;
     background:none;border:none;appearance:none;-webkit-appearance:none;cursor:pointer;
-    padding:14px 18px;font:inherit}
+    padding:16px 20px;font:inherit}
   .stats-toggle:hover,.stats-toggle:active{background:none}
   .stats-caret{font-style:normal;color:var(--muted);width:10px;flex:none;font-size:12px}
-  .stats-proj-name{font-family:var(--serif);font-weight:600;font-size:15.5px;color:var(--ink);flex:1}
-  .stats-proj-avg{font-family:var(--label);font-size:12.5px;color:var(--muted);flex:none}
-  .stats-proj-detail{padding:0 18px 16px 38px}
-  .stats-proj-detail .hint{font-family:var(--label);font-size:13px;color:var(--muted)}
-  .stats-request-row{border-top:1px solid var(--line);padding-top:2px;margin-top:2px}
-  .stats-request-row:first-child{border-top:none;margin-top:0}
-  .stats-request-row .stats-toggle{padding:10px 4px}
-  .stats-req-heading{font-family:var(--label);font-size:13.5px;font-weight:600;color:var(--ink);flex:1}
-  .stats-req-pages{font-family:var(--label);font-size:11.5px;color:var(--muted);background:var(--surface-alt);
+  .stats-proj-name{font-family:var(--serif);font-weight:600;font-size:16px;color:var(--ink);flex:1}
+  .stats-proj-avg{font-family:var(--label);font-size:13px;color:var(--muted);flex:none}
+  .stats-proj-detail{padding:0 20px 16px 20px;display:flex;flex-direction:column;gap:6px}
+  .stats-proj-detail .hint{font-family:var(--label);font-size:13px;color:var(--muted);padding-left:30px}
+  .stats-request-row{display:flex;align-items:center;justify-content:space-between;gap:10px;
+    margin-left:30px;padding:9px 12px;background:var(--surface-alt);border-radius:8px;
+    cursor:pointer;border:none;text-align:left;font:inherit;width:calc(100% - 30px)}
+  .stats-request-row:hover{background:var(--line)}
+  .stats-req-heading{font-family:var(--label);font-size:13px;color:var(--ink);flex:1}
+  .stats-req-pages{font-family:var(--label);font-size:11px;color:var(--muted);background:var(--surface);
     border:1px solid var(--line);border-radius:5px;padding:2px 7px;flex:none}
   .stats-req-avg{font-family:var(--label);font-size:12.5px;color:var(--muted);flex:none}
-  .stats-timeline{padding:4px 4px 14px 20px}
+  .stats-timeline{margin-left:30px;padding:6px 12px 12px}
   .stats-tl-row{display:flex;align-items:flex-start;gap:10px;padding:5px 0}
   .stats-tl-dot{width:8px;height:8px;border-radius:50%;background:var(--line-strong);margin-top:5px;flex:none}
   .stats-tl-editor .stats-tl-dot{background:var(--reply-ink)}
@@ -113,6 +116,11 @@
   .stats-tl-gap{display:flex;align-items:center;gap:6px;padding:2px 0 2px 3px;margin-left:3px}
   .stats-tl-gap span{font-family:var(--label);font-size:12px;font-weight:600;color:var(--accent-ink);
     background:var(--await-bg);border-radius:5px;padding:2px 9px}
+  .stats-empty-head{font-family:var(--label);font-size:11px;font-weight:700;letter-spacing:.06em;
+    text-transform:uppercase;color:var(--muted);padding:12px 20px 4px;background:var(--surface-alt)}
+  .stats-project-row.stats-empty{opacity:.6}
+  .stats-project-row.stats-empty .stats-toggle{cursor:default;padding:11px 20px}
+  .stats-project-row.stats-empty .stats-proj-name{font-family:var(--label);font-weight:500;font-size:14px}
   .proj-list{display:flex;flex-direction:column}
   .proj-list-item{display:flex;align-items:center;justify-content:space-between;gap:14px;
     width:100%;text-align:left;font:inherit;appearance:none;-webkit-appearance:none;background:none;
@@ -779,7 +787,7 @@ const store = (() => {
   // survive a reload in hosted mode too, not just standalone.
   let ls = false;
   if (!clientBaked) { try { localStorage.setItem("__t", "1"); localStorage.removeItem("__t"); ls = true; } catch (e) {} }
-  const LOCAL_ONLY = new Set(["wrt.current.v2", "wrt.whoami", "wrt.listsort"]);         // per-browser, never shared
+  const LOCAL_ONLY = new Set(["wrt.current.v2", "wrt.whoami", "wrt.listsort", "wrt.statssort"]);         // per-browser, never shared
 
   let pending = {}, timer = null, flushing = false;
   function schedule() { if (remote && !timer) timer = setTimeout(flush, 400); }
@@ -995,7 +1003,7 @@ function firstTs(body){
   return first;
 }
 function daysAgo(d){ return d?Math.floor((Date.now()-d.getTime())/86400000):null; }
-const BUILD_TAG="2026-09-10.3";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
+const BUILD_TAG="2026-09-11.2";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
 /* elapsed time since a Date, split into hours/days for display */
 function elapsed(d){
   if(!d) return null;
@@ -1991,6 +1999,7 @@ function statTimelineHTML(r){
 function showStatistics(){
   hideSettingsPanels(null);
   current=-1; saveCfg();
+  lastData=null;
   document.title="Request Tracker";
   const ph=$("projHead"); if(ph) ph.hidden=true;
   $("stats").hidden=true; $("grid").hidden=true;
@@ -2004,13 +2013,32 @@ function showStatistics(){
     try{ requests=JSON.parse(store.get("wrt.respgap::"+p.name)||"{}").requests||[]; }catch(e){}
     let sum=0,count=0;
     requests.forEach(r=>r.gaps.forEach(d=>{ sum+=d; count++; }));
-    return {name:p.name||"(unnamed)", requests, sum, count};
-  }).sort((a,b)=>a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+    return {name:p.name||"(unnamed)", owner:(p.owner||"").trim(), requests, sum, count};
+  });
 
   let agencySum=0, agencyCount=0, projectsWithData=0;
   perProject.forEach(pp=>{ agencySum+=pp.sum; agencyCount+=pp.count; if(pp.count) projectsWithData++; });
 
-  let html='<div class="panel stats-summary">';
+  const withData=perProject.filter(pp=>pp.count);
+  const withoutData=perProject.filter(pp=>!pp.count)
+    .sort((a,b)=>a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+
+  const sortBy=store.get("wrt.statssort")||"response";
+  if(sortBy==="response") withData.sort((a,b)=>(b.sum/b.count)-(a.sum/a.count));
+  else if(sortBy==="owner") withData.sort((a,b)=>{
+    const oa=a.owner||"\uffff", ob=b.owner||"\uffff";
+    return oa.toLowerCase().localeCompare(ob.toLowerCase()) || a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+  });
+  else withData.sort((a,b)=>a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+
+  let html='<div class="stats-toolbar"><span class="stats-count">'+perProject.length+' project'+(perProject.length===1?"":"s")+'</span>'+
+    '<label class="tools">Sort by<select id="statsSortSel">'+
+    '<option value="response"'+(sortBy==="response"?" selected":"")+'>response time</option>'+
+    '<option value="name"'+(sortBy==="name"?" selected":"")+'>project name</option>'+
+    '<option value="owner"'+(sortBy==="owner"?" selected":"")+'>owner</option>'+
+    '</select></label></div>';
+
+  html+='<div class="panel stats-summary">';
   if(agencyCount){
     const avg=(agencySum/agencyCount).toFixed(1);
     html+='<div class="stats-headline">Agency-wide average editor response: <strong>'+avg+' day'+(avg==="1.0"?"":"s")+'</strong></div>'+
@@ -2019,40 +2047,44 @@ function showStatistics(){
     html+='<div class="stats-headline">No data yet</div><div class="hint">Open a project at least once to start measuring editor response times.</div>';
   }
   html+='</div><div class="panel"><div class="stats-project-list">';
-  perProject.forEach((pp,pi)=>{
-    const avg=pp.count?(pp.sum/pp.count).toFixed(1):null;
+
+  withData.forEach((pp,pi)=>{
+    const avg=(pp.sum/pp.count).toFixed(1);
     html+='<div class="stats-project-row">'+
       '<button class="stats-toggle" data-proj-toggle="'+pi+'" type="button">'+
       '<i class="stats-caret">&#9656;</i><span class="stats-proj-name">'+esc(pp.name)+'</span>'+
-      '<span class="stats-proj-avg">'+(avg?avg+' day'+(avg==="1.0"?"":"s")+' avg &middot; '+pp.count+' repl'+(pp.count===1?"y":"ies"):'No data yet')+'</span>'+
+      '<span class="stats-proj-avg">'+avg+' day'+(avg==="1.0"?"":"s")+' avg &middot; '+pp.count+' repl'+(pp.count===1?"y":"ies")+'</span>'+
       '</button><div class="stats-proj-detail" id="statsProjDetail'+pi+'" hidden>';
-    if(!pp.requests.length){
-      html+='<div class="hint">Open this project to start measuring.</div>';
-    }else{
-      pp.requests.forEach((r,ri)=>{
-        const gapList=r.gaps.map(g=>g.toFixed(1));
-        html+='<div class="stats-request-row">'+
-          '<button class="stats-toggle" data-req-toggle="'+pi+'-'+ri+'" type="button">'+
-          '<i class="stats-caret">&#9656;</i><span class="stats-req-heading">'+esc(r.heading)+'</span>'+
-          '<span class="stats-req-pages">'+r.pages.length+' page'+(r.pages.length===1?"":"s")+'</span>'+
-          '<span class="stats-req-avg">'+gapList.join(", ")+' day'+(gapList.length===1&&gapList[0]==="1.0"?"":"s")+'</span>'+
-          '</button><div class="stats-timeline" id="statsReqDetail'+pi+'-'+ri+'" hidden>'+statTimelineHTML(r)+'</div>'+
-          '</div>';
-      });
-    }
+    pp.requests.forEach((r,ri)=>{
+      const gapList=r.gaps.map(g=>g.toFixed(1));
+      html+='<button class="stats-request-row" data-req-toggle="'+pi+'-'+ri+'" type="button">'+
+        '<span class="stats-req-heading">'+esc(r.heading)+'</span>'+
+        '<span class="stats-req-pages">'+r.pages.length+' page'+(r.pages.length===1?"":"s")+'</span>'+
+        '<span class="stats-req-avg">'+gapList.join(", ")+' day'+(gapList.length===1&&gapList[0]==="1.0"?"":"s")+'</span>'+
+        '</button><div class="stats-timeline" id="statsReqDetail'+pi+'-'+ri+'" hidden>'+statTimelineHTML(r)+'</div>';
+    });
     html+='</div></div>';
   });
+  if(withoutData.length){
+    html+='<div class="stats-empty-head">Not yet measured</div>';
+    withoutData.forEach(pp=>{
+      html+='<div class="stats-project-row stats-empty"><div class="stats-toggle">'+
+        '<span class="stats-proj-name">'+esc(pp.name)+'</span>'+
+        '<span class="stats-proj-avg">Open to measure</span></div></div>';
+    });
+  }
   html+='</div></div>';
 
   $("msg").innerHTML='<div class="stats-page"><button class="back-link internalOnly" id="statsBackBtn" type="button">&larr; All projects</button>'+html+'</div>';
   $("statsBackBtn").addEventListener("click", showProjectList);
+  const ssel=$("statsSortSel"); if(ssel) ssel.addEventListener("change",()=>{ store.set("wrt.statssort", ssel.value); showStatistics(); });
   $("msg").querySelectorAll("[data-proj-toggle]").forEach(btn=>btn.addEventListener("click",()=>{
     const detail=$("statsProjDetail"+btn.dataset.projToggle), caret=btn.querySelector(".stats-caret");
     detail.hidden=!detail.hidden; caret.innerHTML=detail.hidden?"&#9656;":"&#9662;";
   }));
   $("msg").querySelectorAll("[data-req-toggle]").forEach(btn=>btn.addEventListener("click",()=>{
-    const detail=$("statsReqDetail"+btn.dataset.reqToggle), caret=btn.querySelector(".stats-caret");
-    detail.hidden=!detail.hidden; caret.innerHTML=detail.hidden?"&#9656;":"&#9662;";
+    const detail=$("statsReqDetail"+btn.dataset.reqToggle);
+    detail.hidden=!detail.hidden;
   }));
 }
 function renderSelector(){
