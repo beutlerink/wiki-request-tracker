@@ -74,10 +74,45 @@
   .proj-list-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
     padding:14px 18px;border-bottom:1px solid var(--line)}
   .proj-list-count{font-family:var(--label);font-size:12.5px;color:var(--muted)}
-  .proj-list-respgap{font-family:var(--label);font-size:12.5px;color:var(--muted)}
-  .proj-list-respgap strong{color:var(--ink);font-weight:600}
   .proj-group-head{font-family:var(--label);font-size:11px;font-weight:700;letter-spacing:.06em;
     text-transform:uppercase;color:var(--muted);padding:14px 18px 6px;background:var(--surface-alt)}
+
+  .stats-page{display:flex;flex-direction:column;gap:20px}
+  .stats-summary{padding:18px 20px}
+  .stats-headline{font-family:var(--serif);font-size:20px;font-weight:600}
+  .stats-headline strong{color:var(--done-ink)}
+  .stats-summary .hint{font-family:var(--label);font-size:13px;color:var(--muted);margin-top:4px}
+  .stats-project-list{display:flex;flex-direction:column}
+  .stats-project-row{border-bottom:1px solid var(--line)}
+  .stats-project-row:last-child{border-bottom:none}
+  .stats-toggle{display:flex;align-items:center;gap:10px;width:100%;text-align:left;
+    background:none;border:none;appearance:none;-webkit-appearance:none;cursor:pointer;
+    padding:14px 18px;font:inherit}
+  .stats-toggle:hover,.stats-toggle:active{background:none}
+  .stats-caret{font-style:normal;color:var(--muted);width:10px;flex:none;font-size:12px}
+  .stats-proj-name{font-family:var(--serif);font-weight:600;font-size:15.5px;color:var(--ink);flex:1}
+  .stats-proj-avg{font-family:var(--label);font-size:12.5px;color:var(--muted);flex:none}
+  .stats-proj-detail{padding:0 18px 16px 38px}
+  .stats-proj-detail .hint{font-family:var(--label);font-size:13px;color:var(--muted)}
+  .stats-request-row{border-top:1px solid var(--line);padding-top:2px;margin-top:2px}
+  .stats-request-row:first-child{border-top:none;margin-top:0}
+  .stats-request-row .stats-toggle{padding:10px 4px}
+  .stats-req-heading{font-family:var(--label);font-size:13.5px;font-weight:600;color:var(--ink);flex:1}
+  .stats-req-pages{font-family:var(--label);font-size:11.5px;color:var(--muted);background:var(--surface-alt);
+    border:1px solid var(--line);border-radius:5px;padding:2px 7px;flex:none}
+  .stats-req-avg{font-family:var(--label);font-size:12.5px;color:var(--muted);flex:none}
+  .stats-timeline{padding:4px 4px 14px 20px}
+  .stats-tl-row{display:flex;align-items:flex-start;gap:10px;padding:5px 0}
+  .stats-tl-dot{width:8px;height:8px;border-radius:50%;background:var(--line-strong);margin-top:5px;flex:none}
+  .stats-tl-editor .stats-tl-dot{background:var(--reply-ink)}
+  .stats-tl-meta{font-family:var(--label);font-size:13px;color:var(--ink)}
+  .stats-tl-meta strong{font-weight:600}
+  .stats-tl-tag{font-size:10.5px;font-weight:600;color:var(--reply-ink);background:var(--reply-bg);
+    border-radius:4px;padding:1px 6px;margin:0 4px;text-transform:uppercase;letter-spacing:.02em}
+  .stats-tl-page{color:var(--muted)}
+  .stats-tl-gap{display:flex;align-items:center;gap:6px;padding:2px 0 2px 3px;margin-left:3px}
+  .stats-tl-gap span{font-family:var(--label);font-size:12px;font-weight:600;color:var(--accent-ink);
+    background:var(--await-bg);border-radius:5px;padding:2px 9px}
   .proj-list{display:flex;flex-direction:column}
   .proj-list-item{display:flex;align-items:center;justify-content:space-between;gap:14px;
     width:100%;text-align:left;font:inherit;appearance:none;-webkit-appearance:none;background:none;
@@ -365,9 +400,6 @@
   .prog-num{font-family:var(--serif);font-size:26px;font-weight:600;color:var(--done-ink);line-height:1}
   .prog-num .prog-lab{font-family:var(--label);font-size:14px;font-weight:500;color:var(--muted)}
   .prog-last{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
-  .prog-respgap{font-family:var(--label);font-size:12.5px;color:var(--muted);margin-top:4px;cursor:help}
-  .prog-respgap strong{color:var(--ink);font-weight:600}
-  .resp-gap-hint{font-size:11px;color:var(--muted);opacity:.75}
   .prog-bar{display:flex;height:12px;border-radius:6px;overflow:hidden;margin:13px 0 11px;background:var(--idle-bg)}
   .prog-seg{height:100%}
   .prog-seg+.prog-seg{box-shadow:inset 1px 0 0 rgba(255,255,255,.6)}
@@ -502,6 +534,7 @@
       <button class="ghost" id="menuBtn" type="button" aria-haspopup="true" aria-expanded="false" title="Menu">&#9776;</button>
       <div class="menu-drop" id="menuDrop" hidden>
         <button class="menu-item" id="mAllProjects" type="button">All projects</button>
+        <button class="menu-item" id="mStats" type="button">Statistics</button>
         <div class="menu-sep"></div>
         <button class="menu-item" id="mTeam" type="button">Team members</button>
       </div>
@@ -627,7 +660,6 @@ Draft:Some draft article"></textarea>
     <div class="prog-head">
       <div>
         <div class="prog-num"><span id="stProg">&mdash;</span> <span class="prog-lab">resolved</span></div>
-        <div class="prog-respgap internalOnly" id="respGapLine" hidden></div>
       </div>
       <div class="prog-last internalOnly" id="stLast"></div>
     </div>
@@ -963,7 +995,7 @@ function firstTs(body){
   return first;
 }
 function daysAgo(d){ return d?Math.floor((Date.now()-d.getTime())/86400000):null; }
-const BUILD_TAG="2026-09-10.2";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
+const BUILD_TAG="2026-09-10.3";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
 /* elapsed time since a Date, split into hours/days for display */
 function elapsed(d){
   if(!d) return null;
@@ -1632,7 +1664,9 @@ function render(){
   // average editor response time: cross-posted pages sharing a group label are merged into
   // one shared timeline first, since a follow-up nudge on another page is the same ask, not
   // a new one -- computed from each raw source's own body, before grouping collapses
-  // cross-posted pages into one displayed row and discards the non-representative bodies
+  // cross-posted pages into one displayed row and discards the non-representative bodies.
+  // Cached in full detail (every event, not just the total) so the Statistics page can show
+  // the actual comment-by-comment breakdown, not just a number to take on faith.
   if(!isClient()){
     const oursSet=new Set(effectiveUsers(proj).map(u=>u.toLowerCase()));
     const groupedItems={}, singles=[];
@@ -1642,33 +1676,28 @@ function render(){
         else singles.push(it);
       }
     });
-    let gapSum=0, gapCount=0;
-    const breakdown=[];   // {label, gaps:[days,...]} -- for the "show your work" tooltip
-    function tally(events, label){
+    const requests=[];
+    function tally(events, heading, pages){
       const gaps=responseGaps(events, oursSet);
-      if(gaps.length){ breakdown.push({label, gaps}); gaps.forEach(d=>{ gapSum+=d; gapCount++; }); }
+      if(gaps.length){
+        requests.push({heading, pages,
+          events: events.map(ev=>({t:ev.t, user:ev.user, page:ev.page, ours:oursSet.has(ev.user.toLowerCase())})),
+          gaps});
+      }
     }
     Object.keys(groupedItems).forEach(gk=>{
       const members=groupedItems[gk];
-      const merged=[]; members.forEach(m=>merged.push(...signatureEvents(m.body)));
+      const merged=[]; members.forEach(m=>signatureEvents(m.body).forEach(ev=>merged.push(Object.assign({page:m.label},ev))));
       merged.sort((a,b)=>a.t-b.t);
-      tally(merged, members[0].heading+" ("+members.length+" pages)");
+      tally(merged, members[0].heading, members.map(m=>m.label));
     });
-    singles.forEach(it=>{ tally(signatureEvents(it.body), it.heading); });
+    singles.forEach(it=>{
+      const events=signatureEvents(it.body).map(ev=>Object.assign({page:it.label},ev));
+      tally(events, it.heading, [it.label]);
+    });
     const rgKey="wrt.respgap::"+proj.name;
-    const newVal=JSON.stringify({sum:Math.round(gapSum*100)/100, count:gapCount});
+    const newVal=JSON.stringify({requests});
     if(store.get(rgKey)!==newVal) store.set(rgKey, newVal);
-    const rgLine=$("respGapLine");
-    if(rgLine){
-      if(gapCount){
-        rgLine.hidden=false;
-        rgLine.innerHTML="Avg. editor response: <strong>"+(gapSum/gapCount).toFixed(1)+" day"+((gapSum/gapCount).toFixed(1)==="1.0"?"":"s")+"</strong> <span class=\"resp-gap-hint\">(hover to see the gaps)</span>";
-        const detail=breakdown.map(b=>b.label+": "+b.gaps.map(d=>d.toFixed(1)).join(", ")+" day"+(b.gaps.length===1&&b.gaps[0].toFixed(1)==="1.0"?"":"s")).join("\n");
-        rgLine.title="Based on "+gapCount+" measured repl"+(gapCount===1?"y":"ies")+":\n"+detail;
-      } else { rgLine.hidden=true; rgLine.title=""; }
-    }
-  }else{
-    const rgLine=$("respGapLine"); if(rgLine) rgLine.hidden=true;
   }
 
   items=collapseGroups(items);
@@ -1896,18 +1925,7 @@ function showProjectList(){
   $("stats").hidden=true; $("grid").hidden=true;
   const sortBy=store.get("wrt.listsort")||"name";
   const visible=projects.map((p,i)=>({name:p.name||"(unnamed)",i,p,owner:(p.owner||"").trim()}));
-  let respGapHtml="";
-  if(!isClient()){
-    let sum=0,count=0;
-    store.keys("wrt.respgap::").forEach(k=>{
-      try{ const v=JSON.parse(store.get(k)||"{}"); if(v.count){ sum+=v.sum; count+=v.count; } }catch(e){}
-    });
-    if(count){
-      const avg=(sum/count).toFixed(1);
-      respGapHtml='<span class="proj-list-respgap">Avg. editor response across all projects: <strong>'+avg+' day'+(avg==="1.0"?"":"s")+'</strong></span>';
-    }
-  }
-  const head='<div class="proj-list-head"><span class="proj-list-count">'+visible.length+' project'+(visible.length===1?"":"s")+'</span>'+respGapHtml+
+  const head='<div class="proj-list-head"><span class="proj-list-count">'+visible.length+' project'+(visible.length===1?"":"s")+'</span>'+
     '<label class="tools">Sort by<select id="homeSortSel"><option value="name"'+(sortBy==="name"?" selected":"")+'>project name</option>'+
     '<option value="owner"'+(sortBy==="owner"?" selected":"")+'>owner</option></select></label></div>';
   if(!visible.length){
@@ -1942,6 +1960,100 @@ function showProjectList(){
   const mb=$("manageBtn"),pb=$("previewBtn"),pfw=$("projFieldWrap");
   if(mb)mb.hidden=true; if(pb)pb.hidden=true; if(pfw)pfw.hidden=true;
   renderSelector();
+}
+function fmtStatDate(t){ try{ return new Date(t).toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"}); }catch(e){ return ""; } }
+/* renders one request's full comment-by-comment timeline: every post in order, who made it,
+   which page, and the measured gap called out explicitly wherever one closes -- re-walks the
+   same state machine as responseGaps() purely to figure out where to place each gap value
+   next to the event that closed it; the gap numbers themselves are already computed. */
+function statTimelineHTML(r){
+  const gapAtIndex={};
+  let anchorT=null, gi=0;
+  r.events.forEach((ev,i)=>{
+    if(ev.ours){ if(anchorT===null) anchorT=ev.t; }
+    else if(anchorT!==null){ gapAtIndex[i]=r.gaps[gi]; gi++; anchorT=null; }
+  });
+  let html='<div class="stats-timeline-list">';
+  r.events.forEach((ev,i)=>{
+    html+='<div class="stats-tl-row '+(ev.ours?"stats-tl-ours":"stats-tl-editor")+'">'+
+      '<span class="stats-tl-dot"></span>'+
+      '<span class="stats-tl-meta"><strong>'+esc(ev.user)+'</strong>'+(ev.ours?'':' <span class="stats-tl-tag">editor</span>')+
+      ' <span class="stats-tl-page">'+esc(ev.page)+' &middot; '+esc(fmtStatDate(ev.t))+'</span></span>'+
+      '</div>';
+    if(gapAtIndex[i]!==undefined){
+      const g=gapAtIndex[i].toFixed(1);
+      html+='<div class="stats-tl-gap"><span>'+g+' day'+(g==="1.0"?"":"s")+'</span></div>';
+    }
+  });
+  html+='</div>';
+  return html;
+}
+function showStatistics(){
+  hideSettingsPanels(null);
+  current=-1; saveCfg();
+  document.title="Request Tracker";
+  const ph=$("projHead"); if(ph) ph.hidden=true;
+  $("stats").hidden=true; $("grid").hidden=true;
+  const sy=$("synced"); if(sy) sy.textContent="";
+  const mb=$("manageBtn"),pb=$("previewBtn"),pfw=$("projFieldWrap");
+  if(mb)mb.hidden=true; if(pb)pb.hidden=true; if(pfw)pfw.hidden=true;
+  renderSelector();
+
+  const perProject=projects.map(p=>{
+    let requests=[];
+    try{ requests=JSON.parse(store.get("wrt.respgap::"+p.name)||"{}").requests||[]; }catch(e){}
+    let sum=0,count=0;
+    requests.forEach(r=>r.gaps.forEach(d=>{ sum+=d; count++; }));
+    return {name:p.name||"(unnamed)", requests, sum, count};
+  }).sort((a,b)=>a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+
+  let agencySum=0, agencyCount=0, projectsWithData=0;
+  perProject.forEach(pp=>{ agencySum+=pp.sum; agencyCount+=pp.count; if(pp.count) projectsWithData++; });
+
+  let html='<div class="panel stats-summary">';
+  if(agencyCount){
+    const avg=(agencySum/agencyCount).toFixed(1);
+    html+='<div class="stats-headline">Agency-wide average editor response: <strong>'+avg+' day'+(avg==="1.0"?"":"s")+'</strong></div>'+
+      '<div class="hint">Based on '+agencyCount+' measured repl'+(agencyCount===1?"y":"ies")+' across '+projectsWithData+' project'+(projectsWithData===1?"":"s")+'.</div>';
+  }else{
+    html+='<div class="stats-headline">No data yet</div><div class="hint">Open a project at least once to start measuring editor response times.</div>';
+  }
+  html+='</div><div class="panel"><div class="stats-project-list">';
+  perProject.forEach((pp,pi)=>{
+    const avg=pp.count?(pp.sum/pp.count).toFixed(1):null;
+    html+='<div class="stats-project-row">'+
+      '<button class="stats-toggle" data-proj-toggle="'+pi+'" type="button">'+
+      '<i class="stats-caret">&#9656;</i><span class="stats-proj-name">'+esc(pp.name)+'</span>'+
+      '<span class="stats-proj-avg">'+(avg?avg+' day'+(avg==="1.0"?"":"s")+' avg &middot; '+pp.count+' repl'+(pp.count===1?"y":"ies"):'No data yet')+'</span>'+
+      '</button><div class="stats-proj-detail" id="statsProjDetail'+pi+'" hidden>';
+    if(!pp.requests.length){
+      html+='<div class="hint">Open this project to start measuring.</div>';
+    }else{
+      pp.requests.forEach((r,ri)=>{
+        const gapList=r.gaps.map(g=>g.toFixed(1));
+        html+='<div class="stats-request-row">'+
+          '<button class="stats-toggle" data-req-toggle="'+pi+'-'+ri+'" type="button">'+
+          '<i class="stats-caret">&#9656;</i><span class="stats-req-heading">'+esc(r.heading)+'</span>'+
+          '<span class="stats-req-pages">'+r.pages.length+' page'+(r.pages.length===1?"":"s")+'</span>'+
+          '<span class="stats-req-avg">'+gapList.join(", ")+' day'+(gapList.length===1&&gapList[0]==="1.0"?"":"s")+'</span>'+
+          '</button><div class="stats-timeline" id="statsReqDetail'+pi+'-'+ri+'" hidden>'+statTimelineHTML(r)+'</div>'+
+          '</div>';
+      });
+    }
+    html+='</div></div>';
+  });
+  html+='</div></div>';
+
+  $("msg").innerHTML='<div class="stats-page"><button class="back-link internalOnly" id="statsBackBtn" type="button">&larr; All projects</button>'+html+'</div>';
+  $("statsBackBtn").addEventListener("click", showProjectList);
+  $("msg").querySelectorAll("[data-proj-toggle]").forEach(btn=>btn.addEventListener("click",()=>{
+    const detail=$("statsProjDetail"+btn.dataset.projToggle), caret=btn.querySelector(".stats-caret");
+    detail.hidden=!detail.hidden; caret.innerHTML=detail.hidden?"&#9656;":"&#9662;";
+  }));
+  $("msg").querySelectorAll("[data-req-toggle]").forEach(btn=>btn.addEventListener("click",()=>{
+    const detail=$("statsReqDetail"+btn.dataset.reqToggle), caret=btn.querySelector(".stats-caret");
+    detail.hidden=!detail.hidden; caret.innerHTML=detail.hidden?"&#9656;":"&#9662;";
+  }));
 }
 function renderSelector(){
   const sel=$("projSelect"); sel.innerHTML="";
@@ -2094,6 +2206,7 @@ if(!isClient()){
   { const bl=$("backToListBtn"); if(bl) bl.addEventListener("click",showProjectList); }
   function closeMenu(){ const d=$("menuDrop"); if(d){ d.hidden=true; $("menuBtn").setAttribute("aria-expanded","false"); } }
   { const ap=$("mAllProjects"); if(ap) ap.addEventListener("click",()=>{ closeMenu(); showProjectList(); }); }
+  { const ms=$("mStats"); if(ms) ms.addEventListener("click",()=>{ closeMenu(); showStatistics(); }); }
   $("menuBtn").addEventListener("click",e=>{ e.stopPropagation(); const d=$("menuDrop"); const show=d.hidden; d.hidden=!show; $("menuBtn").setAttribute("aria-expanded",String(show)); });
   document.addEventListener("click",e=>{ const w=$("menuWrap"); if(w && !w.contains(e.target)) closeMenu(); });
   $("addBtn").addEventListener("click",()=>{
