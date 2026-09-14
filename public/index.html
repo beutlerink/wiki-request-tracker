@@ -126,7 +126,8 @@
     width:100%;text-align:left;font:inherit;appearance:none;-webkit-appearance:none;background:none;
     border:1px solid transparent;border-bottom:1px solid var(--line);border-radius:8px;
     padding:15px 18px;cursor:pointer}
-  .proj-list-item:last-child{border-bottom-color:transparent}
+  .proj-list-item:last-child{border-bottom-color:transparent;border-bottom-left-radius:12px;border-bottom-right-radius:12px}
+  .proj-list-item:first-child{border-top-left-radius:12px;border-top-right-radius:12px}
   .proj-list-item:hover,.proj-list-item:focus-visible{background:none;border-color:var(--accent);outline:none}
   .proj-list-item:active{background:none}
   .proj-list-item:hover .proj-list-name{color:var(--accent)}
@@ -148,6 +149,7 @@
   button.ghost{background:transparent;color:var(--accent);border-color:var(--line-strong)}
   button.ghost:hover{background:#eef1f6}
   button.small{padding:5px 10px;font-size:13px}
+  button.icon-btn{padding:8px 10px;display:inline-flex;align-items:center;justify-content:center}
   button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
   .synced{font-family:var(--mono);font-size:12px;color:var(--muted);margin-left:auto}
 
@@ -162,10 +164,6 @@
   .mfield label{font-size:11px;letter-spacing:.05em;text-transform:uppercase;
     color:var(--muted);font-weight:600}
   .mfield .help{font-size:11.5px;color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0}
-  .ag-clear{font:inherit;font-family:var(--label);font-size:11.5px;font-weight:600;color:var(--accent);
-    appearance:none;-webkit-appearance:none;background:none;border:none;cursor:pointer;padding:0;margin-left:8px;
-    text-decoration:underline;text-transform:none;letter-spacing:0}
-  .ag-clear:hover,.ag-clear:active,.ag-clear:focus{background:none;color:var(--ink)}
   .tb-field{display:flex;flex-direction:column;gap:2px}
   .tb-field .tb-label{font-family:var(--label);font-size:10px;letter-spacing:.05em;text-transform:uppercase;
     color:var(--muted);font-weight:600}
@@ -273,7 +271,8 @@
   .cmt-add{margin-top:8px;display:flex;gap:6px}
   .cmt-who{font:inherit;font-size:12.5px;padding:7px 8px;border:1px solid var(--line-strong);border-radius:7px;
     background:#fbfcfd;color:var(--ink);flex:0 0 auto;max-width:120px}
-  .cmt-input{flex:1;font:inherit;font-size:13px;padding:7px 9px;border:1px solid var(--line-strong);border-radius:7px;background:#fbfcfd;color:var(--ink)}
+  .cmt-input{flex:1;font:inherit;font-size:13px;padding:7px 9px;border:1px solid var(--line-strong);border-radius:7px;
+    background:#fbfcfd;color:var(--ink);resize:none;overflow:hidden;line-height:1.4;max-height:160px}
   .cmt-input:focus-visible,.cmt-edit:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 
   /* aligned table rows */
@@ -544,6 +543,7 @@
         <button class="menu-item" id="mAllProjects" type="button">All projects</button>
         <button class="menu-item" id="mStats" type="button">Statistics</button>
         <div class="menu-sep"></div>
+        <button class="menu-item" id="mNewProject" type="button">+ New project</button>
         <button class="menu-item" id="mTeam" type="button">Team members</button>
       </div>
     </div>
@@ -553,7 +553,9 @@
     </div>
     <button class="ghost internalOnly" id="manageBtn" type="button">Project settings</button>
     <button class="ghost internalOnly" id="previewBtn" type="button">Preview client view</button>
-    <button class="ghost internalOnly" id="newProjBtn" type="button" title="Add a new project">+ New project</button>
+    <button class="ghost internalOnly icon-btn" id="clientLinkBtn" type="button" title="Copy client link" hidden>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+    </button>
     <span class="savepill internalOnly" id="saveState" hidden></span>
     <button class="ghost clientOnly" id="clientPdfBtn" type="button">Save as PDF</button>
     <span class="synced" id="synced"></span>
@@ -598,8 +600,7 @@
     </div>
     <div class="mrow">
       <div class="mfield grow" style="flex-basis:100%">
-        <label>Agency usernames <span class="help">check the Beutler accounts working on this project</span>
-          <button type="button" id="agNoneBtn" class="ag-clear">select none</button></label>
+        <label>Agency usernames <span class="help">check the Beutler accounts working on this project</span></label>
         <div class="agency-checks" id="fAgency"></div>
       </div>
     </div>
@@ -648,10 +649,8 @@ Draft:Some draft article"></textarea>
     </div>
     <div class="mactions" id="mactionsNormal">
       <button id="saveBtn" type="button">Save &amp; close</button>
-      <button class="ghost" id="doneBtn" type="button">Done</button>
       <button class="danger" id="deleteBtn" type="button">Delete this project</button>
       <span class="spacer"></span>
-      <button class="ghost" id="clientLinkBtn" type="button" hidden>Copy client link</button>
       <button class="ghost" id="clientFileBtn" type="button">Print client PDF</button>
     </div>
     <div class="delete-confirm" id="deleteConfirm" hidden>
@@ -1003,7 +1002,7 @@ function firstTs(body){
   return first;
 }
 function daysAgo(d){ return d?Math.floor((Date.now()-d.getTime())/86400000):null; }
-const BUILD_TAG="2026-09-11.2";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
+const BUILD_TAG="2026-09-12.1";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
 /* elapsed time since a Date, split into hours/days for display */
 function elapsed(d){
   if(!d) return null;
@@ -1390,14 +1389,11 @@ function renderHeader(proj){
   const ph=$("projHead"); if(ph) ph.hidden=false;
   $("projName").textContent=proj.name||"(unnamed project)";
   document.title=(proj.name||"Request")+" \u00b7 status";
-  const parts=(proj.sources||[]).filter(s=>s.title).map(s=>"<b>"+esc(sourceLabel(s.title))+"</b>"+(s.match?(" ("+esc(s.match)+")"):""));
   const moves=(lastData&&lastData.moves)||[];
   const moveNote = (!isClient() && moves.length)
     ? '<div style="margin-top:5px;color:var(--posted-ink);font-size:12.5px">Note: '+moves.map(m=>esc(m.from)+" now redirects to <b>"+esc(m.to)+"</b>").join("; ")+'. It still tracks fine; update the title when convenient.</div>'
     : "";
-  $("watching").innerHTML = (isClient()
-    ? "Live status of your Wikipedia requests."
-    : ("Watching "+parts.join(", ")+(proj.start?(" \u00b7 since "+esc(proj.start)):""))) + moveNote;
+  $("watching").innerHTML = (isClient() ? "Live status of your Wikipedia requests." : "") + moveNote;
   // client-facing description removed; keep hidden
   const dEl=$("projDesc"); if(dEl) dEl.hidden=true;
   // footer (client only)
@@ -1634,7 +1630,7 @@ function detailHTML(it, client, hiddenRow){
     let rows="";
     comments.forEach(c=>{
       if(!client && editingComment===c.id){
-        rows+='<div class="comment editing"><input class="cmt-edit" data-editkey="'+esc(ck)+'" data-editid="'+esc(c.id)+'" value="'+esc(c.text)+'">'+
+        rows+='<div class="comment editing"><textarea class="cmt-edit" data-editkey="'+esc(ck)+'" data-editid="'+esc(c.id)+'" rows="1">'+esc(c.text)+'</textarea>'+
           '<button class="clink" data-savecmt="'+esc(c.id)+'" data-cmtkey="'+esc(ck)+'" type="button">save</button>'+
           '<button class="clink" data-cancelcmt="1" type="button">cancel</button></div>';
       }else{
@@ -1649,7 +1645,7 @@ function detailHTML(it, client, hiddenRow){
       ? '<select class="cmt-who" data-whokey="'+esc(ck)+'" title="Who\u2019s adding this?"><option value="">(no name)</option>'+
         roster.map(n=>'<option value="'+esc(n)+'"'+(n===(store.get("wrt.whoami")||"")?" selected":"")+'>'+esc(n)+'</option>').join("")+'</select>'
       : '';
-    const addBox = client ? '' : '<div class="cmt-add">'+whoSel+'<input class="cmt-input" data-addkey="'+esc(ck)+'" placeholder="Add a comment, press Enter"><button class="clink" data-addbtn="'+esc(ck)+'" type="button">Add</button></div>';
+    const addBox = client ? '' : '<div class="cmt-add">'+whoSel+'<textarea class="cmt-input" data-addkey="'+esc(ck)+'" rows="1" placeholder="Add a comment, press Enter"></textarea><button class="clink" data-addbtn="'+esc(ck)+'" type="button">Add</button></div>';
     noteHtml='<div class="note"><div class="note-lab">'+(client?'Updates':'Comments')+'</div><div class="comments">'+rows+'</div>'+addBox+'</div>';
   }
 
@@ -1886,14 +1882,19 @@ function wireRequestControls(dragOn){
     if(who!==undefined) store.set("wrt.whoami", who||"");   // remember the pick as this browser's default next time
     const arr=getComments(target).slice(); arr.push({id:genId(),text:t,ts:Date.now(),by:who||""}); setComments(target,arr); editingComment=null; render();
   }
-  list.querySelectorAll("input[data-addkey]").forEach(inp=>inp.addEventListener("keydown",e=>{
-    if(e.key==="Enter"){ e.preventDefault();
-      const who=inp.parentElement.querySelector(".cmt-who");
-      addComment(inp.dataset.addkey, inp.value, who?who.value:undefined);
-    }
-  }));
+  list.querySelectorAll("textarea[data-addkey]").forEach(inp=>{
+    const grow=()=>{ inp.style.height="auto"; inp.style.height=Math.min(inp.scrollHeight,160)+"px"; };
+    grow();
+    inp.addEventListener("input",grow);
+    inp.addEventListener("keydown",e=>{
+      if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault();
+        const who=inp.parentElement.querySelector(".cmt-who");
+        addComment(inp.dataset.addkey, inp.value, who?who.value:undefined);
+      }
+    });
+  });
   list.querySelectorAll("button[data-addbtn]").forEach(b=>b.addEventListener("click",()=>{
-    const inp=b.parentElement.querySelector("input[data-addkey]"); if(!inp) return;
+    const inp=b.parentElement.querySelector("textarea[data-addkey]"); if(!inp) return;
     const who=b.parentElement.querySelector(".cmt-who");
     addComment(inp.dataset.addkey, inp.value, who?who.value:undefined);
   }));
@@ -1901,15 +1902,21 @@ function wireRequestControls(dragOn){
   list.querySelectorAll("button[data-cancelcmt]").forEach(b=>b.addEventListener("click",()=>{ editingComment=null; render(); }));
   list.querySelectorAll("button[data-savecmt]").forEach(b=>b.addEventListener("click",()=>{
     const target=commentTargets[b.dataset.cmtkey], id=b.dataset.savecmt; if(!target) return;
-    const inp=b.parentElement.querySelector("input[data-editid]"); const val=inp?inp.value.trim():"";
+    const inp=b.parentElement.querySelector("textarea[data-editid]"); const val=inp?inp.value.trim():"";
     let arr=getComments(target).slice();
     if(!val){ arr=arr.filter(c=>String(c.id)!==String(id)); } else { arr=arr.map(c=>String(c.id)===String(id)?{id:c.id,text:val,ts:c.ts,by:c.by}:c); }
     setComments(target,arr); editingComment=null; render();
   }));
-  list.querySelectorAll("input[data-editid]").forEach(inp=>inp.addEventListener("keydown",e=>{
-    if(e.key==="Enter"){ e.preventDefault(); const btn=inp.parentElement.querySelector("button[data-savecmt]"); if(btn) btn.click(); }
-    if(e.key==="Escape"){ editingComment=null; render(); }
-  }));
+  list.querySelectorAll("textarea[data-editid]").forEach(inp=>{
+    const grow=()=>{ inp.style.height="auto"; inp.style.height=Math.min(inp.scrollHeight,160)+"px"; };
+    grow();
+    inp.addEventListener("input",grow);
+    inp.addEventListener("keydown",e=>{
+      if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); const btn=inp.parentElement.querySelector("button[data-savecmt]"); if(btn) btn.click(); }
+      if(e.key==="Escape"){ editingComment=null; render(); }
+    });
+    inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length);
+  });
   list.querySelectorAll("button[data-delcmt]").forEach(b=>b.addEventListener("click",()=>{
     const target=commentTargets[b.dataset.cmtkey], id=b.dataset.delcmt; if(!target) return;
     if(!confirm("Delete this comment?")) return;
@@ -1964,7 +1971,7 @@ function showProjectList(){
     }));
     const ss=$("homeSortSel"); if(ss) ss.addEventListener("change",()=>{ store.set("wrt.listsort", ss.value); showProjectList(); });
   }
-  const sy=$("synced"); if(sy) sy.textContent="";
+  const sy=$("synced"); if(sy){ sy.textContent="Updated "+new Date().toLocaleString(); sy.title="build "+BUILD_TAG; }
   const mb=$("manageBtn"),pb=$("previewBtn"),pfw=$("projFieldWrap");
   if(mb)mb.hidden=true; if(pb)pb.hidden=true; if(pfw)pfw.hidden=true;
   renderSelector();
@@ -2003,7 +2010,7 @@ function showStatistics(){
   document.title="Request Tracker";
   const ph=$("projHead"); if(ph) ph.hidden=true;
   $("stats").hidden=true; $("grid").hidden=true;
-  const sy=$("synced"); if(sy) sy.textContent="";
+  const sy=$("synced"); if(sy){ sy.textContent="Updated "+new Date().toLocaleString(); sy.title="build "+BUILD_TAG; }
   const mb=$("manageBtn"),pb=$("previewBtn"),pfw=$("projFieldWrap");
   if(mb)mb.hidden=true; if(pb)pb.hidden=true; if(pfw)pfw.hidden=true;
   renderSelector();
@@ -2032,11 +2039,13 @@ function showStatistics(){
   else withData.sort((a,b)=>a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
 
   let html='<div class="stats-toolbar"><span class="stats-count">'+perProject.length+' project'+(perProject.length===1?"":"s")+'</span>'+
+    '<div class="tools"><button class="ghost small" id="statsExpandAll" type="button">Expand all</button>'+
+    '<button class="ghost small" id="statsCollapseAll" type="button">Collapse all</button>'+
     '<label class="tools">Sort by<select id="statsSortSel">'+
     '<option value="response"'+(sortBy==="response"?" selected":"")+'>response time</option>'+
     '<option value="name"'+(sortBy==="name"?" selected":"")+'>project name</option>'+
     '<option value="owner"'+(sortBy==="owner"?" selected":"")+'>owner</option>'+
-    '</select></label></div>';
+    '</select></label></div></div>';
 
   html+='<div class="panel stats-summary">';
   if(agencyCount){
@@ -2078,6 +2087,15 @@ function showStatistics(){
   $("msg").innerHTML='<div class="stats-page"><button class="back-link internalOnly" id="statsBackBtn" type="button">&larr; All projects</button>'+html+'</div>';
   $("statsBackBtn").addEventListener("click", showProjectList);
   const ssel=$("statsSortSel"); if(ssel) ssel.addEventListener("change",()=>{ store.set("wrt.statssort", ssel.value); showStatistics(); });
+  const seaBtn=$("statsExpandAll"); if(seaBtn) seaBtn.addEventListener("click",()=>{
+    $("msg").querySelectorAll(".stats-proj-detail").forEach(d=>d.hidden=false);
+    $("msg").querySelectorAll("[data-proj-toggle] .stats-caret").forEach(c=>c.innerHTML="&#9662;");
+  });
+  const scaBtn=$("statsCollapseAll"); if(scaBtn) scaBtn.addEventListener("click",()=>{
+    $("msg").querySelectorAll(".stats-proj-detail").forEach(d=>d.hidden=true);
+    $("msg").querySelectorAll(".stats-timeline").forEach(d=>d.hidden=true);
+    $("msg").querySelectorAll("[data-proj-toggle] .stats-caret").forEach(c=>c.innerHTML="&#9656;");
+  });
   $("msg").querySelectorAll("[data-proj-toggle]").forEach(btn=>btn.addEventListener("click",()=>{
     const detail=$("statsProjDetail"+btn.dataset.projToggle), caret=btn.querySelector(".stats-caret");
     detail.hidden=!detail.hidden; caret.innerHTML=detail.hidden?"&#9656;":"&#9662;";
@@ -2107,11 +2125,6 @@ function fillOwnerSelect(ownerVal){
   if(ownerVal && !names.includes(ownerVal)) names.push(ownerVal);  // keep a since-removed name visible rather than silently dropping it
   el.innerHTML='<option value="">Unassigned</option>'+names.map(n=>'<option value="'+esc(n)+'"'+(n===ownerVal?" selected":"")+'>'+esc(n)+'</option>').join("");
 }
-function updateAgToggle(){
-  const btn=$("agNoneBtn"); if(!btn) return;
-  const boxes=[...document.querySelectorAll("#fAgency input[type=checkbox]")];
-  btn.textContent = (boxes.length>0 && boxes.every(c=>c.checked)) ? "select none" : "select all";
-}
 function fillFlagOverrides(fo){
   const ov=fo||{};
   const toVal=v=> v===true?"on" : v===false?"off" : "";
@@ -2137,7 +2150,6 @@ function fillForm(){
   $("fAgency").innerHTML=AGENCY_ROSTER.map(u=>
     '<label class="agchk"><input type="checkbox" data-user="'+esc(u)+'"'+(agSet.has(u.toLowerCase())?" checked":"")+"> "+esc(u)+"</label>"
   ).join("");
-  updateAgToggle();
   fillTeamDefaultFlags();
   fillFlagOverrides(p.flagOverrides);
   $("fPages").value=(p.sources||[]).map(s=>s.title+(s.match?(" | "+s.match):"")).join("\n");
@@ -2168,24 +2180,17 @@ function hideSettingsPanels(exceptId){
 }
 if(!isClient()){
   $("manageBtn").addEventListener("click",()=>{const p=$("managePanel");const opening=p.hidden;hideSettingsPanels("managePanel");p.hidden=!opening;if(opening)fillForm();});
-  { const ag=$("agNoneBtn"); if(ag) ag.addEventListener("click",()=>{
-    const boxes=[...document.querySelectorAll("#fAgency input[type=checkbox]")];
-    const allChecked=boxes.length>0 && boxes.every(c=>c.checked);
-    boxes.forEach(c=>{ c.checked=!allChecked; });
-    updateAgToggle();
-  }); }
-  { const af=$("fAgency"); if(af) af.addEventListener("change", updateAgToggle); }
   $("previewBtn").addEventListener("click",()=>{previewClient=true;$("managePanel").hidden=true;render();renderHeader(projects[current]);
     if(!$("exitPreview")){const b=document.createElement("button");b.id="exitPreview";b.className="ghost";b.textContent="Exit client preview";b.type="button";b.addEventListener("click",()=>{previewClient=false;b.remove();render();renderHeader(projects[current]);});const bar=document.querySelector(".bar");if(bar)bar.appendChild(b);}});
   $("projSelect").addEventListener("change",e=>{current=parseInt(e.target.value,10)||0;saveCfg();if(!$("managePanel").hidden)fillForm();loadProject();});
   $("saveBtn").addEventListener("click",()=>{projects[current]=readForm();saveCfg();renderSelector();$("managePanel").hidden=true;loadProject();});
-  $("doneBtn").addEventListener("click",()=>{$("managePanel").hidden=true;});
   $("closeBtn").addEventListener("click",()=>{$("managePanel").hidden=true;});
-  $("newProjBtn").addEventListener("click",()=>{
-    projects.push({name:"New project",start:"",owner:store.get("wrt.whoami")||"",team:"",agency:AGENCY_ROSTER.slice(),sources:[],manual:[]});
+  { const mnp=$("mNewProject"); if(mnp) mnp.addEventListener("click",()=>{
+    closeMenu();
+    projects.push({name:"New project",start:"",owner:store.get("wrt.whoami")||"",team:"",agency:[],sources:[],manual:[]});
     current=projects.length-1; saveCfg(); renderSelector();
-    $("managePanel").hidden=false; fillForm(); $("fName").focus(); $("fName").select();
-  });
+    loadProject().then(()=>{ $("managePanel").hidden=false; fillForm(); $("fName").focus(); $("fName").select(); });
+  }); }
   $("deleteBtn").addEventListener("click",()=>{
     if(projects.length<=1){alert("Keep at least one project. Edit this one instead.");return;}
     $("deleteProjName").textContent=projects[current].name||"this project";
