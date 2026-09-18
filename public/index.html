@@ -553,9 +553,7 @@
     </div>
     <button class="ghost internalOnly" id="manageBtn" type="button">Project settings</button>
     <button class="ghost internalOnly" id="previewBtn" type="button">Preview client view</button>
-    <button class="ghost internalOnly icon-btn" id="clientLinkBtn" type="button" title="Copy client link" hidden>
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
-    </button>
+    <button class="ghost internalOnly" id="clientLinkBtn" type="button" hidden>Share Client Link</button>
     <span class="savepill internalOnly" id="saveState" hidden></span>
     <button class="ghost clientOnly" id="clientPdfBtn" type="button">Save as PDF</button>
     <span class="synced" id="synced"></span>
@@ -1002,7 +1000,7 @@ function firstTs(body){
   return first;
 }
 function daysAgo(d){ return d?Math.floor((Date.now()-d.getTime())/86400000):null; }
-const BUILD_TAG="2026-09-12.1";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
+const BUILD_TAG="2026-09-12.3";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
 /* elapsed time since a Date, split into hours/days for display */
 function elapsed(d){
   if(!d) return null;
@@ -1285,6 +1283,7 @@ async function loadProject(){
   lastData={proj,requests,activity,edCounts,teamSet,errors,moves};
   render();
   { const sy=$("synced"); sy.textContent="Updated "+new Date().toLocaleString(); sy.title="build "+BUILD_TAG; }
+  if(!isClient() && store.remote){ const cl=$("clientLinkBtn"); if(cl) cl.hidden=false; }
   analyzeThreads(false);   // AI reads the discussions, then re-renders with real statuses + summaries
 }
 
@@ -1972,8 +1971,8 @@ function showProjectList(){
     const ss=$("homeSortSel"); if(ss) ss.addEventListener("change",()=>{ store.set("wrt.listsort", ss.value); showProjectList(); });
   }
   const sy=$("synced"); if(sy){ sy.textContent="Updated "+new Date().toLocaleString(); sy.title="build "+BUILD_TAG; }
-  const mb=$("manageBtn"),pb=$("previewBtn"),pfw=$("projFieldWrap");
-  if(mb)mb.hidden=true; if(pb)pb.hidden=true; if(pfw)pfw.hidden=true;
+  const mb=$("manageBtn"),pb=$("previewBtn"),pfw=$("projFieldWrap"),cl=$("clientLinkBtn");
+  if(mb)mb.hidden=true; if(pb)pb.hidden=true; if(pfw)pfw.hidden=true; if(cl)cl.hidden=true;
   renderSelector();
 }
 function fmtStatDate(t){ try{ return new Date(t).toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"}); }catch(e){ return ""; } }
@@ -2011,8 +2010,8 @@ function showStatistics(){
   const ph=$("projHead"); if(ph) ph.hidden=true;
   $("stats").hidden=true; $("grid").hidden=true;
   const sy=$("synced"); if(sy){ sy.textContent="Updated "+new Date().toLocaleString(); sy.title="build "+BUILD_TAG; }
-  const mb=$("manageBtn"),pb=$("previewBtn"),pfw=$("projFieldWrap");
-  if(mb)mb.hidden=true; if(pb)pb.hidden=true; if(pfw)pfw.hidden=true;
+  const mb=$("manageBtn"),pb=$("previewBtn"),pfw=$("projFieldWrap"),cl=$("clientLinkBtn");
+  if(mb)mb.hidden=true; if(pb)pb.hidden=true; if(pfw)pfw.hidden=true; if(cl)cl.hidden=true;
   renderSelector();
 
   const perProject=projects.map(p=>{
