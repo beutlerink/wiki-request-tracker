@@ -95,6 +95,7 @@
   .stats-proj-name{font-family:var(--serif);font-weight:600;font-size:16px;color:var(--ink);flex:1}
   .stats-proj-avg{font-family:var(--label);font-size:13px;color:var(--muted);flex:none}
   .stats-proj-detail{padding:0 20px 16px 20px;display:flex;flex-direction:column;gap:6px}
+  .stats-proj-detail[hidden]{display:none}
   .stats-proj-detail .hint{font-family:var(--label);font-size:13px;color:var(--muted);padding-left:30px}
   .stats-request-row{display:flex;align-items:center;justify-content:space-between;gap:10px;
     margin-left:30px;padding:9px 12px;background:var(--surface-alt);border-radius:8px;
@@ -119,7 +120,8 @@
   .stats-empty-head{font-family:var(--label);font-size:11px;font-weight:700;letter-spacing:.06em;
     text-transform:uppercase;color:var(--muted);padding:12px 20px 4px;background:var(--surface-alt)}
   .stats-project-row.stats-empty{opacity:.6}
-  .stats-project-row.stats-empty .stats-toggle{cursor:default;padding:11px 20px}
+  .stats-project-row.stats-empty:hover{opacity:.85}
+  .stats-project-row.stats-empty .stats-toggle{cursor:pointer;padding:11px 20px}
   .stats-project-row.stats-empty .stats-proj-name{font-family:var(--label);font-weight:500;font-size:14px}
   .proj-list{display:flex;flex-direction:column}
   .proj-list-item{display:flex;align-items:center;justify-content:space-between;gap:14px;
@@ -553,7 +555,7 @@
     </div>
     <button class="ghost internalOnly" id="manageBtn" type="button">Project settings</button>
     <button class="ghost internalOnly" id="previewBtn" type="button">Preview client view</button>
-    <button class="ghost internalOnly" id="clientLinkBtn" type="button" hidden>Share Client Link</button>
+    <button class="ghost internalOnly" id="clientLinkBtn" type="button" hidden>Share client link</button>
     <span class="savepill internalOnly" id="saveState" hidden></span>
     <button class="ghost clientOnly" id="clientPdfBtn" type="button">Save as PDF</button>
     <span class="synced" id="synced"></span>
@@ -1000,7 +1002,7 @@ function firstTs(body){
   return first;
 }
 function daysAgo(d){ return d?Math.floor((Date.now()-d.getTime())/86400000):null; }
-const BUILD_TAG="2026-09-12.3";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
+const BUILD_TAG="2026-09-17.1";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
 /* elapsed time since a Date, split into hours/days for display */
 function elapsed(d){
   if(!d) return null;
@@ -2014,12 +2016,12 @@ function showStatistics(){
   if(mb)mb.hidden=true; if(pb)pb.hidden=true; if(pfw)pfw.hidden=true; if(cl)cl.hidden=true;
   renderSelector();
 
-  const perProject=projects.map(p=>{
+  const perProject=projects.map((p,pidx)=>{
     let requests=[];
     try{ requests=JSON.parse(store.get("wrt.respgap::"+p.name)||"{}").requests||[]; }catch(e){}
     let sum=0,count=0;
     requests.forEach(r=>r.gaps.forEach(d=>{ sum+=d; count++; }));
-    return {name:p.name||"(unnamed)", owner:(p.owner||"").trim(), requests, sum, count};
+    return {name:p.name||"(unnamed)", owner:(p.owner||"").trim(), requests, sum, count, pidx};
   });
 
   let agencySum=0, agencyCount=0, projectsWithData=0;
@@ -2076,9 +2078,9 @@ function showStatistics(){
   if(withoutData.length){
     html+='<div class="stats-empty-head">Not yet measured</div>';
     withoutData.forEach(pp=>{
-      html+='<div class="stats-project-row stats-empty"><div class="stats-toggle">'+
+      html+='<div class="stats-project-row stats-empty"><button class="stats-toggle" data-jump-proj="'+pp.pidx+'" type="button">'+
         '<span class="stats-proj-name">'+esc(pp.name)+'</span>'+
-        '<span class="stats-proj-avg">Open to measure</span></div></div>';
+        '<span class="stats-proj-avg">Open to measure</span></button></div>';
     });
   }
   html+='</div></div>';
@@ -2102,6 +2104,9 @@ function showStatistics(){
   $("msg").querySelectorAll("[data-req-toggle]").forEach(btn=>btn.addEventListener("click",()=>{
     const detail=$("statsReqDetail"+btn.dataset.reqToggle);
     detail.hidden=!detail.hidden;
+  }));
+  $("msg").querySelectorAll("[data-jump-proj]").forEach(btn=>btn.addEventListener("click",()=>{
+    current=parseInt(btn.dataset.jumpProj,10); saveCfg(); renderSelector(); loadProject();
   }));
 }
 function renderSelector(){
