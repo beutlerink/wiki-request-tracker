@@ -81,6 +81,8 @@
   .link-note{margin:2px 0 8px}
   .proj-list-act{font-family:var(--label);font-size:12.5px;color:var(--muted);white-space:nowrap}
   .proj-list-act.none{opacity:.6}
+  .proj-list-act.nudge-amber{color:var(--await-ink)}
+  .proj-list-act.nudge-red{color:var(--declined-ink)}
   .proj-list-empty{padding:18px;font-family:var(--label);font-size:13px;color:var(--muted)}
   .proj-arch-toggle{display:flex;align-items:center;gap:8px;width:100%;text-align:left;font:inherit;font-family:var(--label);
     font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:var(--surface-alt);
@@ -1027,7 +1029,7 @@ function firstTs(body){
   return first;
 }
 function daysAgo(d){ return d?Math.floor((Date.now()-d.getTime())/86400000):null; }
-const BUILD_TAG="2026-10-15.2";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
+const BUILD_TAG="2026-10-19.1";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
 /* elapsed time since a Date, split into hours/days for display */
 function elapsed(d){
   if(!d) return null;
@@ -1771,7 +1773,17 @@ function render(){
     const rgKey="wrt.respgap::"+proj.name;
     const newVal=JSON.stringify({requests});
     if(store.get(rgKey)!==newVal) store.set(rgKey, newVal);
-    if(lastAct){ const lk="wrt.lastact::"+proj.name, lv=JSON.stringify({t:lastAct.d.getTime(),by:lastAct.by||""}); if(store.get(lk)!==lv) store.set(lk, lv); }
+    if(lastAct){
+      // requests still waiting on someone: awaiting, posted, or an editor reply we haven't answered (cross-posts count once)
+      const waiting=new Set();
+      items.forEach(it=>{ if(it.kind==="wiki" && it.ours!==false && (it.status==="awaiting"||it.status==="posted"||it.status==="replied")) waiting.add(it.group?("g:"+it.group):it.hideKey); });
+      const lk="wrt.lastact::"+proj.name;
+      let prev=null; try{ prev=JSON.parse(store.get(lk)||"null"); }catch(e){}
+      const cur={t:lastAct.d.getTime(),by:lastAct.by||"",open:waiting.size};
+      const same=prev && prev.t===cur.t && prev.by===cur.by && prev.open===cur.open;
+      const fresh=prev && prev.c && (Date.now()-prev.c)<30*60*1000;     // refresh the "checked" stamp at most twice an hour, not on every render
+      if(!same || !fresh) store.set(lk, JSON.stringify(Object.assign({c:Date.now()},cur)));
+    }
   }
 
   items=collapseGroups(items);
@@ -2006,6 +2018,8 @@ function refreshTeamUI(){}
 /* The homepage is always a list of matching projects; nothing auto-opens.
    current === -1 means "no project open, showing the list." */
 let showArchivedHome=false;   // whether the Archived group on the homepage is expanded (resets on reload)
+/* homepage nudge colours: amber from 7 days, red from 14, only for active projects that still have something waiting */
+const NUDGE_AMBER_DAYS=7, NUDGE_RED_DAYS=14;
 function projLastAct(name){
   try{ const v=JSON.parse(store.get("wrt.lastact::"+name)||"null"); return (v&&v.t)?v:null; }catch(e){ return null; }
 }
@@ -2041,9 +2055,14 @@ function showProjectList(){
   }else{
     const itemHTML=o=>{
       const la=projLastAct(o.name);
-      const act=la
-        ? '<span class="proj-list-act" title="'+esc(new Date(la.t).toLocaleString()+(la.by?" \u00b7 "+la.by:""))+'">'+esc(shortDate(new Date(la.t)))+' \u00b7 '+relative(new Date(la.t))+'</span>'
-        : '<span class="proj-list-act none">not loaded yet</span>';
+      let act;
+      if(la){
+        // colour only, no extra labels. Entries saved before the waiting count existed have no "open" value and stay neutral until refreshed.
+        const days=(Date.now()-la.t)/86400000;
+        const tone=(!o.archived && la.open>0) ? (days>=NUDGE_RED_DAYS?" nudge-red":(days>=NUDGE_AMBER_DAYS?" nudge-amber":"")) : "";
+        const tip=new Date(la.t).toLocaleString()+(la.by?" \u00b7 "+la.by:"")+(la.c?" \u00b7 checked "+relative(new Date(la.c)):"");
+        act='<span class="proj-list-act'+tone+'" title="'+esc(tip)+'">'+esc(shortDate(new Date(la.t)))+' \u00b7 '+relative(new Date(la.t))+'</span>';
+      }else act='<span class="proj-list-act none">not loaded yet</span>';
       return '<button class="proj-list-item" data-openproj="'+o.i+'" type="button">'+
         '<span class="proj-list-name">'+esc(o.name)+'</span>'+
         '<span class="proj-list-meta">'+act+(o.owner?'<span class="proj-list-owner">'+esc(o.owner)+'</span>':'')+'</span>'+

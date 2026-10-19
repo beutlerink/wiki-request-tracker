@@ -255,7 +255,7 @@ async function buildGroupPage(group) {
     '</style></head><body><div class="wrap">' +
     '<div class="brand">' + (logo ? '<img src="' + logo + '" alt="Beutler Ink">' : '<b>Beutler Ink</b>') + '</div>' +
     '<div class="eyebrow">Wikipedia &middot; edit-request status</div><hr>' +
-    '<h1>' + escHtml(group) + '</h1><p class="sub">Choose a property to see where its Wikipedia requests stand.</p>' +
+    '<h1>' + escHtml(group) + '</h1><p class="sub">Choose a project to see where its Wikipedia requests stand.</p>' +
     (active.length ? '<div class="list">' + active.map(card).join("") + '</div>' : '') +
     (done.length ? '<h2>Completed</h2><div class="list done">' + done.map(card).join("") + '</div>' : '') +
     '<div class="foot">Prepared by Beutler Ink &middot; updates live from Wikipedia</div></div></body></html>';
