@@ -108,7 +108,7 @@ async function initDb() {
 // the team. Mirrors the client's own LOCAL_ONLY set; kept out of the shared
 // snapshot so one person's local UI state (last project, last filter, last
 // comment-signature pick) never leaks into what the team sees.
-const LOCAL_ONLY_KEYS = new Set(["wrt.current.v2", "wrt.whoami", "wrt.listsort", "wrt.statssort"]);
+const LOCAL_ONLY_KEYS = new Set(["wrt.current.v2", "wrt.whoami", "wrt.listsort", "wrt.statssort", "wrt.listowner"]);
 function isAppKey(k) { return k.indexOf("wrt.") === 0 && !LOCAL_ONLY_KEYS.has(k); }
 
 async function appSnapshot() {
@@ -148,6 +148,8 @@ async function buildBaked(projectName) {
   delete projClone.agency;                          // never ship the roster selection
   delete projClone.owner;                            // internal staffing assignment, not for clients
   delete projClone.flagOverrides;                     // internal workflow tuning, not for clients
+  delete projClone.archived;                          // internal housekeeping, not for clients
+  delete projClone.clientGroup;                       // internal grouping, not for clients
   stripCommentAuthors(projClone.manual);             // "who on our team wrote this" is internal, not for clients
   const baked = { client: true, ts: new Date().toISOString(), project: projClone, notes: {}, statuses: {} };
   baked.notes = scrubNotesAuthors(await db.getPrefix("wrt.note::" + projectName + "::"));
@@ -192,6 +194,71 @@ async function clientTokenFor(projectName) {
     ]);
   }
   return token;
+}
+
+/* ---------- client groups: one shared page listing a client's tracker links ---------- */
+function effectiveGroup(p) {
+  const g = String((p && p.clientGroup) || "").trim();
+  if (g) return g;
+  const n = String((p && p.name) || ""), i = n.indexOf("|");
+  return i > 0 ? n.slice(0, i).trim() : "";
+}
+async function groupTokenFor(group) {
+  let token = await db.get("sys.cg::" + group);
+  if (!token) {
+    token = crypto.randomBytes(24).toString("base64url");
+    await db.setMany([
+      { k: "sys.cg::" + group, v: token },
+      { k: "sys.gp::" + token, v: group }
+    ]);
+  }
+  return token;
+}
+function escHtml(s) {
+  return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+async function buildGroupPage(group) {
+  const projects = await getProjects();
+  const members = projects.filter(p => effectiveGroup(p) === group);
+  if (!members.length) return null;
+  const show = p => {                       // "Coyne × Hilton | Conrad Hotels" reads as "Conrad Hotels" under the Coyne × Hilton heading
+    const n = String(p.name || ""), i = n.indexOf("|");
+    return (i > 0 && n.slice(0, i).trim() === group) ? n.slice(i + 1).trim() : n;
+  };
+  const rows = [];
+  for (const p of members) rows.push({ label: show(p), archived: !!p.archived, url: "/c/" + await clientTokenFor(p.name) });
+  const byLabel = (a, b) => a.label.toLowerCase().localeCompare(b.label.toLowerCase());
+  const active = rows.filter(r => !r.archived).sort(byLabel), done = rows.filter(r => r.archived).sort(byLabel);
+  const card = r => '<a class="card" href="' + escHtml(r.url) + '"><span>' + escHtml(r.label) + '</span><span class="arrow" aria-hidden="true">&rarr;</span></a>';
+  const logo = (String(INDEX_HTML).match(/window\.__LOGO__="([^"]+)"/) || [])[1] || "";
+  return '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">' +
+    '<meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex">' +
+    '<title>' + escHtml(group) + ' | Beutler Ink</title>' +
+    '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>' +
+    '<link href="https://fonts.googleapis.com/css2?family=Castoro:ital@0;1&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">' +
+    '<style>' +
+    ':root{--bg:#FFF9F2;--ink:#241f1c;--muted:#6f6760;--line:#e6ddd2;--accent:#EA503B}' +
+    '*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:"DM Sans",system-ui,-apple-system,"Segoe UI",sans-serif}' +
+    '.wrap{max-width:760px;margin:0 auto;padding:28px 20px 48px}' +
+    '.brand img{height:30px;width:auto;display:block}.brand b{font-family:Castoro,Georgia,serif;font-size:20px}' +
+    '.eyebrow{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:10px 0 18px}' +
+    'hr{border:0;border-top:2px solid var(--ink);margin:0 0 28px}' +
+    'h1{font-family:Castoro,Georgia,serif;font-weight:600;font-size:34px;line-height:1.15;margin:0 0 6px}' +
+    '.sub{color:var(--muted);margin:0 0 26px;font-size:15px}' +
+    'h2{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:32px 0 10px;font-weight:700}' +
+    '.list{display:flex;flex-direction:column;gap:10px}' +
+    'a.card{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:16px 18px;background:#fff;border:1px solid var(--line);border-radius:12px;text-decoration:none;color:var(--ink);font-family:Castoro,Georgia,serif;font-size:18px;font-weight:600}' +
+    'a.card:hover,a.card:focus-visible{border-color:var(--accent);outline:none}' +
+    'a.card:hover .arrow,a.card:focus-visible .arrow{color:var(--accent)}.arrow{color:var(--muted)}' +
+    '.done a.card{background:transparent;font-size:16px;font-weight:500;color:var(--muted)}' +
+    '.foot{margin-top:40px;padding-top:14px;border-top:1px solid var(--line);font-size:12.5px;color:var(--muted)}' +
+    '</style></head><body><div class="wrap">' +
+    '<div class="brand">' + (logo ? '<img src="' + logo + '" alt="Beutler Ink">' : '<b>Beutler Ink</b>') + '</div>' +
+    '<div class="eyebrow">Wikipedia &middot; edit-request status</div><hr>' +
+    '<h1>' + escHtml(group) + '</h1><p class="sub">Choose a property to see where its Wikipedia requests stand.</p>' +
+    (active.length ? '<div class="list">' + active.map(card).join("") + '</div>' : '') +
+    (done.length ? '<h2>Completed</h2><div class="list done">' + done.map(card).join("") + '</div>' : '') +
+    '<div class="foot">Prepared by Beutler Ink &middot; updates live from Wikipedia</div></div></body></html>';
 }
 
 /* ---------- AI discussion analysis ---------- */
@@ -407,6 +474,79 @@ app.post("/api/analyze", auth, async (req, res) => {
   }
 });
 
+/* ---------- matching planned (pre-loaded) requests to threads that were actually posted ---------- */
+const MATCH_PROMPT_VERSION = "m1";
+const MATCH_SYSTEM =
+  "You help a PR agency track Wikipedia edit requests. The team writes PLANNED requests in advance as short internal labels, " +
+  "then later posts the real request on a Wikipedia talk page under whatever heading the author chose (often prefixed with " +
+  "'Request:' or 'Edit request:'). Decide which POSTED thread, if any, is the same request as each PLANNED one.\n\n" +
+  "The wording will rarely be identical. Match on substance: the same article section, topic, or change being asked for. " +
+  "Matching only because both concern the same company, product or article is NOT enough, and two different asks about " +
+  "different sections must stay separate. Each posted thread can match at most one planned request, and each planned " +
+  "request at most one thread. When unsure, leave it unmatched: a wrong match hides a planned request, while a missed match is easy to fix by hand.\n\n" +
+  "Input is JSON: {\"planned\":[{\"id\",\"title\",\"note\"}],\"posted\":[{\"key\",\"heading\",\"gist\"}]}. Reply with ONLY JSON, no prose and no code fences: " +
+  "{\"matches\":[{\"id\":\"<planned id>\",\"key\":\"<posted key>\",\"confidence\":\"high\"|\"medium\"}]}. " +
+  "Use \"high\" when the subject clearly matches and \"medium\" when it likely matches but the wording differs a lot. " +
+  "Leave out anything weaker. Return {\"matches\":[]} if nothing matches.";
+async function matchPlanned(planned, posted) {
+  const r = await fetch(AI_API_URL, {
+    method: "POST",
+    headers: { "x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+    body: JSON.stringify({
+      model: AI_MODEL, max_tokens: 700, system: MATCH_SYSTEM,
+      messages: [{ role: "user", content: JSON.stringify({ planned, posted }) }]
+    })
+  });
+  if (!r.ok) { const t = await r.text().catch(() => ""); throw new Error("anthropic " + r.status + " " + t.slice(0, 200)); }
+  const data = await r.json();
+  const text = (data.content || []).filter(b => b.type === "text").map(b => b.text).join("");
+  const parsed = JSON.parse(stripFences(text));
+  const ids = new Set(planned.map(p => p.id)), keys = new Set(posted.map(p => p.key));
+  const usedId = new Set(), usedKey = new Set(), out = [];
+  for (const m of (Array.isArray(parsed.matches) ? parsed.matches : [])) {
+    const id = String(m && m.id), key = String(m && m.key), conf = m && m.confidence;
+    if (!ids.has(id) || !keys.has(key) || usedId.has(id) || usedKey.has(key)) continue;   // ignore anything invented or double-booked
+    if (conf !== "high" && conf !== "medium") continue;
+    usedId.add(id); usedKey.add(key); out.push({ id, key, confidence: conf });
+  }
+  return out;
+}
+app.post("/api/match", auth, async (req, res) => {
+  if (!ANTHROPIC_API_KEY) return res.json({ enabled: false, matches: [] });
+  const clip = (v, n) => String(v == null ? "" : v).replace(/\s+/g, " ").trim().slice(0, n);
+  const planned = (Array.isArray(req.body && req.body.upcoming) ? req.body.upcoming : []).slice(0, 25)
+    .map(u => ({ id: clip(u && u.id, 40), title: clip(u && u.title, 200), note: clip(u && u.note, 300) })).filter(u => u.id && u.title);
+  const posted = (Array.isArray(req.body && req.body.threads) ? req.body.threads : []).slice(0, 60)
+    .map(t => ({ key: clip(t && t.key, 300), heading: clip(t && t.heading, 200), gist: clip(t && t.gist, 300) })).filter(t => t.key && t.heading);
+  if (!planned.length || !posted.length) return res.json({ enabled: true, matches: [] });
+  const cacheKey = "sys.match::" + crypto.createHash("sha256").update(MATCH_PROMPT_VERSION + "\u0000" + JSON.stringify(planned) + "\u0000" + JSON.stringify(posted)).digest("hex").slice(0, 40);
+  try {
+    const cached = await db.get(cacheKey);
+    if (cached) return res.json({ enabled: true, matches: JSON.parse(cached) });
+    const matches = await matchPlanned(planned, posted);
+    await db.setMany([{ k: cacheKey, v: JSON.stringify(matches) }]);
+    res.json({ enabled: true, matches });
+  } catch (e) {
+    console.error("match error:", e.message);
+    res.json({ enabled: true, matches: [], error: true });     // best-effort: planned items simply stay where they are
+  }
+});
+
+// Get (or create) the shared link for a client group
+app.get("/api/grouplink", auth, async (req, res) => {
+  try {
+    const group = (req.query.group || "").toString().trim();
+    if (!group) return res.status(400).json({ ok: false, error: "missing group" });
+    const projects = await getProjects();
+    if (!projects.some(p => effectiveGroup(p) === group)) return res.status(404).json({ ok: false, error: "unknown group" });
+    const token = await groupTokenFor(group);
+    res.json({ ok: true, url: baseUrl(req) + "/c/" + token, token });
+  } catch (e) {
+    console.error("grouplink error:", e.message);
+    res.status(500).json({ ok: false, error: "server error" });
+  }
+});
+
 // Get (or create) a client link for a project
 app.get("/api/clientlink", auth, async (req, res) => {
   try {
@@ -426,7 +566,16 @@ app.get("/api/clientlink", auth, async (req, res) => {
 app.get("/c/:token", async (req, res) => {
   try {
     const project = await db.get("sys.cp::" + req.params.token);
-    if (!project) return res.status(404).send("This client link is not valid.");
+    if (!project) {
+      const group = await db.get("sys.gp::" + req.params.token);       // not a project link: maybe a client-group link
+      if (group) {
+        const page = await buildGroupPage(group);
+        if (!page) return res.status(404).send("This client link is no longer available.");
+        res.set("Cache-Control", "no-store");
+        return res.type("html").send(page);
+      }
+      return res.status(404).send("This client link is not valid.");
+    }
     const baked = await buildBaked(project);
     if (!baked) return res.status(404).send("This project is no longer available.");
     res.set("Cache-Control", "no-store");

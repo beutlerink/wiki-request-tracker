@@ -77,6 +77,17 @@
   .proj-group-head{font-family:var(--label);font-size:11px;font-weight:700;letter-spacing:.06em;
     text-transform:uppercase;color:var(--muted);padding:14px 18px 6px;background:var(--surface-alt)}
 
+  .proj-list-meta{display:flex;align-items:center;gap:14px}
+  .link-note{margin:2px 0 8px}
+  .proj-list-act{font-family:var(--label);font-size:12.5px;color:var(--muted);white-space:nowrap}
+  .proj-list-act.none{opacity:.6}
+  .proj-list-empty{padding:18px;font-family:var(--label);font-size:13px;color:var(--muted)}
+  .proj-arch-toggle{display:flex;align-items:center;gap:8px;width:100%;text-align:left;font:inherit;font-family:var(--label);
+    font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:var(--surface-alt);
+    border:none;border-top:1px solid var(--line);border-radius:0;padding:12px 18px;cursor:pointer;appearance:none;-webkit-appearance:none}
+  .proj-arch-toggle:hover,.proj-arch-toggle:active{background:var(--surface-alt);color:var(--ink)}
+  .stats-arch{font-family:var(--label);font-size:10.5px;font-weight:600;color:var(--muted);background:var(--surface-alt);
+    border:1px solid var(--line);border-radius:4px;padding:1px 6px;margin-left:6px;text-transform:uppercase;letter-spacing:.03em}
   .stats-page{display:flex;flex-direction:column;gap:16px}
   .stats-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px}
   .stats-count{font-family:var(--label);font-size:12.5px;color:var(--muted)}
@@ -119,6 +130,8 @@
     background:var(--await-bg);border-radius:5px;padding:2px 9px}
   .stats-empty-head{font-family:var(--label);font-size:11px;font-weight:700;letter-spacing:.06em;
     text-transform:uppercase;color:var(--muted);padding:12px 20px 4px;background:var(--surface-alt)}
+  .refresh-banner{position:fixed;top:0;left:0;right:0;z-index:9999;background:var(--ink);color:#fff;
+    font-family:var(--label);font-size:13px;padding:10px 18px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.15)}
   .stats-project-row.stats-empty{opacity:.6}
   .stats-project-row.stats-empty:hover{opacity:.85}
   .stats-project-row.stats-empty .stats-toggle{cursor:pointer;padding:11px 20px}
@@ -144,6 +157,8 @@
   .bar{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin:16px 0 20px}
   .bar select{font:inherit;padding:8px 10px;border:1px solid var(--line-strong);
     border-radius:7px;background:var(--surface);color:var(--ink);min-width:200px}
+  .bar{--ctl-h:43px}
+  .bar select,.bar>button,.bar #menuBtn{height:var(--ctl-h);box-sizing:border-box}
   button{font:inherit;font-weight:600;cursor:pointer;border-radius:7px;
     border:1px solid var(--accent);background:var(--accent);color:#fff;
     padding:8px 15px;white-space:nowrap}
@@ -314,7 +329,7 @@
   .add-msg{font-family:var(--label);font-size:12.5px;font-weight:600}
   .add-msg.ok{color:var(--done-ink)} .add-msg.err{color:var(--declined-ink)}
   .menu-wrap{position:relative;display:inline-block}
-  #menuBtn{font-size:16px;line-height:1;padding:6px 11px}
+  #menuBtn{font-size:16px;line-height:1;padding:0 12px;display:inline-flex;align-items:center;justify-content:center}
   .menu-drop{position:absolute;top:calc(100% + 6px);left:0;z-index:200;min-width:184px;background:var(--surface);
     border:1px solid var(--line-strong);border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.12);padding:6px}
   .menu-drop[hidden]{display:none}
@@ -550,12 +565,12 @@
       </div>
     </div>
     <div class="tb-field internalOnly" id="projFieldWrap" hidden>
-      <label class="tb-label" for="projSelect">Project</label>
       <select id="projSelect" aria-label="Choose project"></select>
     </div>
     <button class="ghost internalOnly" id="manageBtn" type="button">Project settings</button>
     <button class="ghost internalOnly" id="previewBtn" type="button">Preview client view</button>
     <button class="ghost internalOnly" id="clientLinkBtn" type="button" hidden>Share client link</button>
+    <button class="ghost internalOnly" id="groupLinkBtn" type="button" hidden>Share group link</button>
     <span class="savepill internalOnly" id="saveState" hidden></span>
     <button class="ghost clientOnly" id="clientPdfBtn" type="button">Save as PDF</button>
     <span class="synced" id="synced"></span>
@@ -590,6 +605,13 @@
       <div class="mfield">
         <label for="fStart">Start date <span class="help">ignore anything older</span></label>
         <input id="fStart" type="date">
+      </div>
+    </div>
+    <div class="mrow">
+      <div class="mfield grow">
+        <label for="fGroup">Client group <span class="help">projects in the same group share one &ldquo;Share group link&rdquo; page. Leave blank to use the part of the name before the |</span></label>
+        <input id="fGroup" type="text" list="clientGroupList" autocomplete="off">
+        <datalist id="clientGroupList"></datalist>
       </div>
     </div>
     <div class="mrow">
@@ -649,6 +671,7 @@ Draft:Some draft article"></textarea>
     </div>
     <div class="mactions" id="mactionsNormal">
       <button id="saveBtn" type="button">Save &amp; close</button>
+      <button class="ghost" id="archiveBtn" type="button" title="Hides this project from the dropdown. Its client link keeps working.">Archive project</button>
       <button class="danger" id="deleteBtn" type="button">Delete this project</button>
       <span class="spacer"></span>
       <button class="ghost" id="clientFileBtn" type="button">Print client PDF</button>
@@ -786,7 +809,7 @@ const store = (() => {
   // survive a reload in hosted mode too, not just standalone.
   let ls = false;
   if (!clientBaked) { try { localStorage.setItem("__t", "1"); localStorage.removeItem("__t"); ls = true; } catch (e) {} }
-  const LOCAL_ONLY = new Set(["wrt.current.v2", "wrt.whoami", "wrt.listsort", "wrt.statssort"]);         // per-browser, never shared
+  const LOCAL_ONLY = new Set(["wrt.current.v2", "wrt.whoami", "wrt.listsort", "wrt.statssort", "wrt.listowner"]);         // per-browser, never shared
 
   let pending = {}, timer = null, flushing = false;
   function schedule() { if (remote && !timer) timer = setTimeout(flush, 400); }
@@ -857,6 +880,8 @@ function projAgency(proj){
   if(Array.isArray(proj.agency)) return proj.agency;
   return AGENCY_ROSTER.slice();             // legacy projects: treat all as active
 }
+/* which client a project belongs to: an explicit "Client group" if set, otherwise the part of the name before the | */
+function effGroup(p){ const g=((p&&p.clientGroup)||"").trim(); if(g) return g; const n=(p&&p.name)||"", i=n.indexOf("|"); return i>0?n.slice(0,i).trim():""; }
 function effectiveUsers(proj){
   const seen=new Set(), out=[];
   projAgency(proj).concat(parseUsers(proj?proj.team:"")).forEach(u=>{
@@ -1002,7 +1027,7 @@ function firstTs(body){
   return first;
 }
 function daysAgo(d){ return d?Math.floor((Date.now()-d.getTime())/86400000):null; }
-const BUILD_TAG="2026-09-17.1";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
+const BUILD_TAG="2026-10-15.2";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
 /* elapsed time since a Date, split into hours/days for display */
 function elapsed(d){
   if(!d) return null;
@@ -1286,7 +1311,41 @@ async function loadProject(){
   render();
   { const sy=$("synced"); sy.textContent="Updated "+new Date().toLocaleString(); sy.title="build "+BUILD_TAG; }
   if(!isClient() && store.remote){ const cl=$("clientLinkBtn"); if(cl) cl.hidden=false; }
+  { const gb=$("groupLinkBtn"), g=effGroup(proj);   // only worth offering when the client has more than one tracker
+    if(gb){ gb.hidden=!(!isClient() && store.remote && g && projects.filter(p=>effGroup(p)===g).length>=2); gb.title="One page listing every \u201c"+g+"\u201d tracker link"; } }
   analyzeThreads(false);   // AI reads the discussions, then re-renders with real statuses + summaries
+  matchUpcoming();         // pairs planned requests with differently-worded live threads
+}
+
+/* semantic matching: a planned ("upcoming") request whose wording differs from the posted heading gets paired with
+   the live thread by the AI. The pairing is saved on the planned item, so it survives reloads and client links show
+   the same thing. Only threads started by our own accounts are candidates, and "unlink" on the thread undoes a pairing. */
+let _matchInFlight=false;
+async function matchUpcoming(){
+  if(!store.remote || isClient() || !lastData || _matchInFlight) return;
+  const proj=lastData.proj;
+  const items=buildItems();
+  const planned=items.filter(it=>it.kind==="manual" && it.item && !it.item.noLink && (it.item.title||"").trim());
+  const claimed=new Set((proj.manual||[]).map(m=>m.linked).filter(Boolean));
+  const cands=items.filter(it=>it.kind==="wiki" && it.ours!==false && !it.promoted && !claimed.has(it.hideKey));
+  if(!planned.length || !cands.length) return;
+  _matchInFlight=true;
+  try{
+    const r=await fetch("/api/match",{method:"POST",credentials:"same-origin",
+      headers:{"Content-Type":"application/json",Authorization:authHeader},
+      body:JSON.stringify({project:proj.name,
+        upcoming:planned.map(it=>({id:String(it.item.id),title:it.item.title,note:it.item.note||""})),
+        threads:cands.map(it=>({key:it.hideKey,heading:it.heading,gist:(it.ask||it.preview||"")}))})});
+    if(!r.ok) return;
+    const j=await r.json();
+    let changed=false;
+    (j.matches||[]).forEach(mt=>{
+      const m=(proj.manual||[]).find(x=>String(x.id)===String(mt.id));
+      if(m && !m.linked && cands.some(c=>c.hideKey===mt.key)){ m.linked=mt.key; changed=true; }
+    });
+    if(changed){ saveCfg(); if(lastData && lastData.proj===proj) render(); }
+  }catch(e){ /* matching is best-effort: the planned item just stays where it is */ }
+  finally{ _matchInFlight=false; }
 }
 
 /* AI discussion analysis: results keyed by item key, refreshed when content changes */
@@ -1355,8 +1414,10 @@ function buildItems(){
   });
   const manual=[];
   (proj.manual||[]).forEach(m=>{
-    const live=wiki.find(w=>titlesMatch(m.title, w.heading));
-    if(live){ live.promoted=true; if(!live.note && m.note) live.note=m.note; return; }
+    let live=m.linked ? wiki.find(w=>w.hideKey===m.linked) : null;     // paired earlier by the AI and saved on the planned item
+    const byLink=!!live;
+    if(!live) live=wiki.find(w=>titlesMatch(m.title, w.heading));
+    if(live){ live.promoted=true; if(byLink) live.linkedManual={id:m.id,title:m.title}; if(!live.note && m.note) live.note=m.note; return; }
     manual.push({kind:"manual", id:m.id, item:m, ours:true,
       status:m.status||"notposted", heading:m.title||"(untitled request)",
       label:"Not on Wikipedia yet", type:null, latest:null, url:null, note:m.note||""});
@@ -1377,6 +1438,7 @@ function collapseGroups(items){
     rep.grouped=true;
     rep.locations=members.map(m=>({label:m.label, url:m.url, hideKey:m.hideKey}));
     rep.ours=members.some(m=>m.ours!==false);
+    { const lm=members.find(m=>m.linkedManual); if(lm) rep.linkedManual=lm.linkedManual; }
     // last activity should reflect the most recent post across ALL grouped pages, not just
     // whichever member happened to be picked as the representative by status priority
     rep.latest = members.reduce((max,m)=> (m.latest && (!max || m.latest>max)) ? m.latest : max, null);
@@ -1612,6 +1674,7 @@ function detailHTML(it, client, hiddenRow){
       }else{
         groupBlock='<label class="grp">group <input list="groupList" data-group="'+esc(it.hideKey)+'" value="'+esc(it.group||"")+'" placeholder="link cross-posts"></label>';
       }
+      if(it.linkedManual) bits+='<div class="autohint link-note">Matched to your upcoming request \u201c'+esc(it.linkedManual.title)+'\u201d <button class="rm" data-unlink="'+esc(it.linkedManual.id)+'" type="button">unlink</button></div>';
       bits+='<div class="ctrls"><span class="autohint">status:</span>'+
         '<select data-sk="'+esc(it.statusKey)+'">'+statusOptions(it.override,true)+'</select>'+
         groupBlock+
@@ -1666,6 +1729,11 @@ function render(){
   const hiddenItems=items.filter(i=>i.kind==="wiki" && hidden.has(i.hideKey));
   items=items.filter(i=>!(i.kind==="wiki" && hidden.has(i.hideKey)));
 
+  // newest activity on our requests across EVERY watched page (article talk, WikiProjects, user talk).
+  // Edit-history entries are only a fallback: they get dropped when an edit summary misses the page's keyword filter.
+  let lastAct=activity.length?{d:activity[0].ts,by:activity[0].user}:null;
+  items.forEach(it=>{ if(it.kind==="wiki" && it.ours!==false && it.latest && (!lastAct || it.latest>lastAct.d)) lastAct={d:it.latest,by:it.last||""}; });
+
   // average editor response time: cross-posted pages sharing a group label are merged into
   // one shared timeline first, since a follow-up nudge on another page is the same ask, not
   // a new one -- computed from each raw source's own body, before grouping collapses
@@ -1703,6 +1771,7 @@ function render(){
     const rgKey="wrt.respgap::"+proj.name;
     const newVal=JSON.stringify({requests});
     if(store.get(rgKey)!==newVal) store.set(rgKey, newVal);
+    if(lastAct){ const lk="wrt.lastact::"+proj.name, lv=JSON.stringify({t:lastAct.d.getTime(),by:lastAct.by||""}); if(store.get(lk)!==lv) store.set(lk, lv); }
   }
 
   items=collapseGroups(items);
@@ -1727,8 +1796,8 @@ function render(){
       l.innerHTML='<span class="dot" style="background:'+b.color+'"></span>'+esc(b.label)+' <b>'+c+'</b>'; leg.appendChild(l);
     });
   }
-  $("stLast").innerHTML=activity.length
-    ? ("Last activity "+esc(shortDate(activity[0].ts))+" ("+relative(activity[0].ts)+") \u00b7 "+esc(activity[0].user))
+  $("stLast").innerHTML=lastAct
+    ? ("Last activity "+esc(shortDate(lastAct.d))+" ("+relative(lastAct.d)+")"+(lastAct.by?" \u00b7 "+esc(lastAct.by):""))
     : "";
   $("stats").hidden=false;
 
@@ -1858,6 +1927,10 @@ function wireRequestControls(dragOn){
   list.querySelectorAll("button[data-mrm]").forEach(b=>b.addEventListener("click",()=>{
     lastData.proj.manual=(lastData.proj.manual||[]).filter(x=>String(x.id)!==b.dataset.mrm); saveCfg(); render();
   }));
+  list.querySelectorAll("button[data-unlink]").forEach(b=>b.addEventListener("click",()=>{
+    const m=((lastData.proj.manual)||[]).find(x=>String(x.id)===b.dataset.unlink);
+    if(m){ delete m.linked; m.noLink=true; saveCfg(); render(); }     // noLink: never auto-pair this planned request again
+  }));
   list.querySelectorAll("button[data-hide]").forEach(b=>b.addEventListener("click",()=>{
     const h=getHidden(lastData.proj); h.add(b.dataset.hide); setHidden(lastData.proj,h); render();
   }));
@@ -1932,6 +2005,10 @@ function setRoster(arr){ store.set("wrt.roster", JSON.stringify(arr)); }
 function refreshTeamUI(){}
 /* The homepage is always a list of matching projects; nothing auto-opens.
    current === -1 means "no project open, showing the list." */
+let showArchivedHome=false;   // whether the Archived group on the homepage is expanded (resets on reload)
+function projLastAct(name){
+  try{ const v=JSON.parse(store.get("wrt.lastact::"+name)||"null"); return (v&&v.t)?v:null; }catch(e){ return null; }
+}
 function showProjectList(){
   lastData=null;
   current=-1; saveCfg();
@@ -1940,43 +2017,73 @@ function showProjectList(){
   const ph=$("projHead"); if(ph) ph.hidden=true;
   $("stats").hidden=true; $("grid").hidden=true;
   const sortBy=store.get("wrt.listsort")||"name";
-  const visible=projects.map((p,i)=>({name:p.name||"(unnamed)",i,p,owner:(p.owner||"").trim()}));
-  const head='<div class="proj-list-head"><span class="proj-list-count">'+visible.length+' project'+(visible.length===1?"":"s")+'</span>'+
+  const all=projects.map((p,i)=>({name:p.name||"(unnamed)",i,p,owner:(p.owner||"").trim(),archived:!!p.archived}));
+  const owners=[...new Set(getRoster().concat(all.map(o=>o.owner)).filter(Boolean))]
+    .sort((a,b)=>a.toLowerCase().localeCompare(b.toLowerCase()));
+  let ownerFilter=store.get("wrt.listowner")||"";
+  if(ownerFilter && ownerFilter!=="__none__" && !owners.includes(ownerFilter)) ownerFilter="";
+  const passes=o=>!ownerFilter || (ownerFilter==="__none__" ? !o.owner : o.owner===ownerFilter);
+  const byName=(a,b)=>a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+  const active=all.filter(o=>!o.archived && passes(o));
+  const archived=all.filter(o=>o.archived && passes(o));
+  const totalActive=all.filter(o=>!o.archived).length;
+  const countTxt=(ownerFilter?(active.length+" of "+totalActive):totalActive)+" project"+(totalActive===1?"":"s");
+  const head='<div class="proj-list-head"><span class="proj-list-count">'+countTxt+'</span>'+
+    '<div class="tools"><button class="ghost small" id="homeRefreshAll" type="button">Refresh all</button>'+
+    '<label class="tools">Owner<select id="homeOwnerSel"><option value="">all owners</option>'+
+      owners.map(n=>'<option value="'+esc(n)+'"'+(ownerFilter===n?" selected":"")+'>'+esc(n)+'</option>').join("")+
+      '<option value="__none__"'+(ownerFilter==="__none__"?" selected":"")+'>unassigned</option></select></label>'+
     '<label class="tools">Sort by<select id="homeSortSel"><option value="name"'+(sortBy==="name"?" selected":"")+'>project name</option>'+
-    '<option value="owner"'+(sortBy==="owner"?" selected":"")+'>owner</option></select></label></div>';
-  if(!visible.length){
+    '<option value="owner"'+(sortBy==="owner"?" selected":"")+'>owner</option></select></label></div></div>';
+  if(!all.length){
     $("msg").innerHTML='<div class="panel"><div class="state"><strong>No projects yet</strong>'+
-      '<div class="hint">Add your first one with the + New project button above.</div></div></div>';
+      '<div class="hint">Add your first one from the menu (+ New project).</div></div></div>';
   }else{
-    const itemHTML=o=>'<button class="proj-list-item" data-openproj="'+o.i+'" type="button">'+
-      '<span class="proj-list-name">'+esc(o.name)+'</span>'+
-      (o.owner?'<span class="proj-list-owner">'+esc(o.owner)+'</span>':'')+
-      '</button>';
+    const itemHTML=o=>{
+      const la=projLastAct(o.name);
+      const act=la
+        ? '<span class="proj-list-act" title="'+esc(new Date(la.t).toLocaleString()+(la.by?" \u00b7 "+la.by:""))+'">'+esc(shortDate(new Date(la.t)))+' \u00b7 '+relative(new Date(la.t))+'</span>'
+        : '<span class="proj-list-act none">not loaded yet</span>';
+      return '<button class="proj-list-item" data-openproj="'+o.i+'" type="button">'+
+        '<span class="proj-list-name">'+esc(o.name)+'</span>'+
+        '<span class="proj-list-meta">'+act+(o.owner?'<span class="proj-list-owner">'+esc(o.owner)+'</span>':'')+'</span>'+
+        '</button>';
+    };
     let body;
-    if(sortBy==="owner"){
+    if(!active.length){
+      body='<div class="proj-list-empty">'+(ownerFilter?"No active projects for this owner.":"No active projects.")+'</div>';
+    }else if(sortBy==="owner"){
       const groups={};
-      visible.forEach(o=>{ const key=o.owner||"\uFFFFUnassigned"; (groups[key]=groups[key]||[]).push(o); });
+      active.forEach(o=>{ const key=o.owner||"\uFFFFUnassigned"; (groups[key]=groups[key]||[]).push(o); });
       const groupKeys=Object.keys(groups).sort((a,b)=>a.toLowerCase().localeCompare(b.toLowerCase()));
       body=groupKeys.map(key=>{
         const label=key==="\uFFFFUnassigned"?"Unassigned":key;
-        const items=groups[key].sort((a,b)=>a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
-        return '<div class="proj-group-head">'+esc(label)+'</div>'+items.map(itemHTML).join("");
+        return '<div class="proj-group-head">'+esc(label)+'</div>'+groups[key].sort(byName).map(itemHTML).join("");
       }).join("");
     }else{
-      body=visible.slice().sort((a,b)=>a.name.toLowerCase().localeCompare(b.name.toLowerCase())).map(itemHTML).join("");
+      body=active.slice().sort(byName).map(itemHTML).join("");
     }
-    $("msg").innerHTML='<div class="panel">'+head+'<div class="proj-list">'+body+'</div></div>';
+    let archHTML="";
+    if(archived.length){
+      archHTML='<button class="proj-arch-toggle" id="homeArchToggle" type="button"><i class="stats-caret">'+(showArchivedHome?"&#9662;":"&#9656;")+'</i>Archived ('+archived.length+')</button>'+
+        (showArchivedHome?'<div class="proj-list">'+archived.slice().sort(byName).map(itemHTML).join("")+'</div>':"");
+    }
+    $("msg").innerHTML='<div class="panel">'+head+'<div class="proj-list">'+body+'</div>'+archHTML+'</div>';
     $("msg").querySelectorAll("[data-openproj]").forEach(b=>b.addEventListener("click",()=>{
       hideSettingsPanels(null);
       current=parseInt(b.dataset.openproj,10); saveCfg(); renderSelector(); loadProject();
     }));
     const ss=$("homeSortSel"); if(ss) ss.addEventListener("change",()=>{ store.set("wrt.listsort", ss.value); showProjectList(); });
+    const os=$("homeOwnerSel"); if(os) os.addEventListener("change",()=>{ store.set("wrt.listowner", os.value); showProjectList(); });
+    const at=$("homeArchToggle"); if(at) at.addEventListener("click",()=>{ showArchivedHome=!showArchivedHome; showProjectList(); });
+    const hr=$("homeRefreshAll"); if(hr) hr.addEventListener("click",()=>refreshAllProjects("home"));
   }
   const sy=$("synced"); if(sy){ sy.textContent="Updated "+new Date().toLocaleString(); sy.title="build "+BUILD_TAG; }
   const mb=$("manageBtn"),pb=$("previewBtn"),pfw=$("projFieldWrap"),cl=$("clientLinkBtn");
-  if(mb)mb.hidden=true; if(pb)pb.hidden=true; if(pfw)pfw.hidden=true; if(cl)cl.hidden=true;
+  if(mb)mb.hidden=true; if(pb)pb.hidden=true; if(pfw)pfw.hidden=true; if(cl)cl.hidden=true; { const gb=$("groupLinkBtn"); if(gb) gb.hidden=true; }
   renderSelector();
 }
+
 function fmtStatDate(t){ try{ return new Date(t).toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"}); }catch(e){ return ""; } }
 /* renders one request's full comment-by-comment timeline: every post in order, who made it,
    which page, and the measured gap called out explicitly wherever one closes -- re-walks the
@@ -2013,7 +2120,7 @@ function showStatistics(){
   $("stats").hidden=true; $("grid").hidden=true;
   const sy=$("synced"); if(sy){ sy.textContent="Updated "+new Date().toLocaleString(); sy.title="build "+BUILD_TAG; }
   const mb=$("manageBtn"),pb=$("previewBtn"),pfw=$("projFieldWrap"),cl=$("clientLinkBtn");
-  if(mb)mb.hidden=true; if(pb)pb.hidden=true; if(pfw)pfw.hidden=true; if(cl)cl.hidden=true;
+  if(mb)mb.hidden=true; if(pb)pb.hidden=true; if(pfw)pfw.hidden=true; if(cl)cl.hidden=true; { const gb=$("groupLinkBtn"); if(gb) gb.hidden=true; }
   renderSelector();
 
   const perProject=projects.map((p,pidx)=>{
@@ -2021,8 +2128,8 @@ function showStatistics(){
     try{ requests=JSON.parse(store.get("wrt.respgap::"+p.name)||"{}").requests||[]; }catch(e){}
     let sum=0,count=0;
     requests.forEach(r=>r.gaps.forEach(d=>{ sum+=d; count++; }));
-    return {name:p.name||"(unnamed)", owner:(p.owner||"").trim(), requests, sum, count, pidx};
-  });
+    return {name:p.name||"(unnamed)", owner:(p.owner||"").trim(), requests, sum, count, pidx, archived:!!p.archived};
+  }).filter(pp=>!pp.archived || pp.count);   // archived projects only appear once they have measured data
 
   let agencySum=0, agencyCount=0, projectsWithData=0;
   perProject.forEach(pp=>{ agencySum+=pp.sum; agencyCount+=pp.count; if(pp.count) projectsWithData++; });
@@ -2040,7 +2147,8 @@ function showStatistics(){
   else withData.sort((a,b)=>a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
 
   let html='<div class="stats-toolbar"><span class="stats-count">'+perProject.length+' project'+(perProject.length===1?"":"s")+'</span>'+
-    '<div class="tools"><button class="ghost small" id="statsExpandAll" type="button">Expand all</button>'+
+    '<div class="tools"><button class="ghost small" id="statsRefreshAll" type="button">Refresh all</button>'+
+    '<button class="ghost small" id="statsExpandAll" type="button">Expand all</button>'+
     '<button class="ghost small" id="statsCollapseAll" type="button">Collapse all</button>'+
     '<label class="tools">Sort by<select id="statsSortSel">'+
     '<option value="response"'+(sortBy==="response"?" selected":"")+'>response time</option>'+
@@ -2062,7 +2170,7 @@ function showStatistics(){
     const avg=(pp.sum/pp.count).toFixed(1);
     html+='<div class="stats-project-row">'+
       '<button class="stats-toggle" data-proj-toggle="'+pi+'" type="button">'+
-      '<i class="stats-caret">&#9656;</i><span class="stats-proj-name">'+esc(pp.name)+'</span>'+
+      '<i class="stats-caret">&#9656;</i><span class="stats-proj-name">'+esc(pp.name)+(pp.archived?' <span class="stats-arch">archived</span>':"")+'</span>'+
       '<span class="stats-proj-avg">'+avg+' day'+(avg==="1.0"?"":"s")+' avg &middot; '+pp.count+' repl'+(pp.count===1?"y":"ies")+'</span>'+
       '</button><div class="stats-proj-detail" id="statsProjDetail'+pi+'" hidden>';
     pp.requests.forEach((r,ri)=>{
@@ -2108,10 +2216,33 @@ function showStatistics(){
   $("msg").querySelectorAll("[data-jump-proj]").forEach(btn=>btn.addEventListener("click",()=>{
     current=parseInt(btn.dataset.jumpProj,10); saveCfg(); renderSelector(); loadProject();
   }));
+  const raBtn=$("statsRefreshAll"); if(raBtn) raBtn.addEventListener("click", ()=>refreshAllProjects("stats"));
+}
+/* re-fetches every project's live Wikipedia pages, one at a time, so Statistics reflects
+   current data without having to open each project individually. Reuses loadProject() as-is
+   (same fetching, same response-gap caching), so a project's own board flashes by briefly as
+   its turn comes up -- the banner makes clear that's expected, not a broken navigation. */
+async function refreshAllProjects(returnTo){
+  const btn=$(returnTo==="home"?"homeRefreshAll":"statsRefreshAll"); if(btn){ btn.disabled=true; btn.textContent="Refreshing\u2026"; }
+  const queue=[]; projects.forEach((p,i)=>{ if(!p.archived) queue.push(i); });   // archived projects are skipped
+  const banner=document.createElement("div");
+  banner.className="refresh-banner";
+  document.body.appendChild(banner);
+  for(let n=0;n<queue.length;n++){
+    const i=queue[n];
+    banner.textContent="Refreshing "+(n+1)+" of "+queue.length+": "+(projects[i].name||"(unnamed)")+"\u2026";
+    current=i; saveCfg(); renderSelector();
+    try{ await loadProject(); }catch(e){ /* one project's failure shouldn't stop the rest */ }
+    await new Promise(r=>setTimeout(r,150));   // a small gap between projects, gentler on Wikipedia's API
+  }
+  banner.remove();
+  current=-1; saveCfg();
+  if(returnTo==="home") showProjectList(); else showStatistics();
 }
 function renderSelector(){
   const sel=$("projSelect"); sel.innerHTML="";
-  const all=projects.map((p,i)=>({name:p.name||"(unnamed)",i}))
+  const all=projects.map((p,i)=>({name:p.name||"(unnamed)",i,archived:!!p.archived}))
+    .filter(o=>!o.archived || o.i===current)    // archived projects stay out of the list unless one is open right now
     .sort((a,b)=>a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
   if(!all.length){
     const opt=document.createElement("option"); opt.textContent="No projects yet"; opt.disabled=true; opt.selected=true;
@@ -2148,6 +2279,9 @@ function fillForm(){
   const dc=$("deleteConfirm"),mn=$("mactionsNormal"); if(dc)dc.hidden=true; if(mn)mn.hidden=false;
   const p=projects[current]||{name:"",start:"",team:"",sources:[]};
   $("fName").value=p.name||""; $("fStart").value=p.start||"";
+  { const ab=$("archiveBtn"); if(ab) ab.textContent=p.archived?"Unarchive project":"Archive project"; }
+  { const gi=$("fGroup"); if(gi){ gi.value=p.clientGroup||""; gi.placeholder=effGroup({name:p.name})||"none (this project has no group)"; }
+    const gl=$("clientGroupList"); if(gl) gl.innerHTML=[...new Set(projects.map(x=>effGroup(x)).filter(Boolean))].sort().map(g=>'<option value="'+esc(g)+'">').join(""); }
   fillOwnerSelect(p.owner||"");
   $("fTeam").value=(p.team||"").replace(/,\s*/g,"\n");
   const agSet=new Set(projAgency(p).map(x=>x.toLowerCase()));
@@ -2176,7 +2310,10 @@ function readForm(){
   }).filter(Boolean);
   const prev=projects[current]||{};
   const agency=[...document.querySelectorAll("#fAgency input[type=checkbox]")].filter(c=>c.checked).map(c=>c.dataset.user);
-  return {name:$("fName").value.trim()||"(unnamed)",start:$("fStart").value,owner:$("fOwner").value||"",team:$("fTeam").value.trim(),agency,sources,flagOverrides:readFlagOverrides(),manual:prev.manual||[]};
+  const out={name:$("fName").value.trim()||"(unnamed)",start:$("fStart").value,owner:$("fOwner").value||"",team:$("fTeam").value.trim(),agency,sources,flagOverrides:readFlagOverrides(),manual:prev.manual||[]};
+  if(prev.archived) out.archived=true;   // Save & close rebuilds the project from the form, so carry the archive flag through
+  const cg=($("fGroup").value||"").trim(); if(cg) out.clientGroup=cg;
+  return out;
 }
 
 function hideSettingsPanels(exceptId){
@@ -2188,6 +2325,13 @@ if(!isClient()){
     if(!$("exitPreview")){const b=document.createElement("button");b.id="exitPreview";b.className="ghost";b.textContent="Exit client preview";b.type="button";b.addEventListener("click",()=>{previewClient=false;b.remove();render();renderHeader(projects[current]);});const bar=document.querySelector(".bar");if(bar)bar.appendChild(b);}});
   $("projSelect").addEventListener("change",e=>{current=parseInt(e.target.value,10)||0;saveCfg();if(!$("managePanel").hidden)fillForm();loadProject();});
   $("saveBtn").addEventListener("click",()=>{projects[current]=readForm();saveCfg();renderSelector();$("managePanel").hidden=true;loadProject();});
+  $("archiveBtn").addEventListener("click",()=>{
+    const was=!!(projects[current]&&projects[current].archived);
+    const next=readForm();                       // keeps any unsaved edits sitting in the form
+    if(was) delete next.archived; else next.archived=true;
+    projects[current]=next; saveCfg(); $("managePanel").hidden=true;
+    if(next.archived) showProjectList(); else { renderSelector(); loadProject(); }
+  });
   $("closeBtn").addEventListener("click",()=>{$("managePanel").hidden=true;});
   { const mnp=$("mNewProject"); if(mnp) mnp.addEventListener("click",()=>{
     closeMenu();
@@ -2282,11 +2426,25 @@ if(!isClient()){
   { const ca=$("collapseAllBtn"); if(ca) ca.addEventListener("click",()=>{ expandedSet.clear(); render(); }); }
   $("clientFileBtn").addEventListener("click",exportClientFile);
   if(store.remote){ const cl=$("clientLinkBtn"); if(cl){ cl.hidden=false; cl.addEventListener("click",copyClientLink); } }
+  { const gb=$("groupLinkBtn"); if(gb) gb.addEventListener("click",copyGroupLink); }
 }
 if(isClient()){
   const cpb=$("clientPdfBtn"); if(cpb) cpb.addEventListener("click",exportClientFile);
 }
 
+async function copyGroupLink(){
+  const proj=projects[current]; if(!proj) return;
+  const g=effGroup(proj); if(!g) return;
+  const btn=$("groupLinkBtn"), old=btn.textContent; btn.textContent="Getting link\u2026"; btn.disabled=true;
+  try{
+    const r=await fetch("/api/grouplink?group="+encodeURIComponent(g),{credentials:"same-origin",headers:{Authorization:authHeader}});
+    if(!r.ok) throw new Error("http "+r.status);
+    const j=await r.json();
+    let copied=false; try{ await navigator.clipboard.writeText(j.url); copied=true; }catch(e){}
+    window.prompt(copied?"Group link copied. This page lists every "+g+" tracker link:":"Copy this group link:", j.url);
+  }catch(e){ alert("Couldn't get a group link. Make sure this project has been saved."); }
+  finally{ btn.textContent=old; btn.disabled=false; }
+}
 async function copyClientLink(){
   const proj=projects[current]; if(!proj){ alert("Save the project first, then copy its client link."); return; }
   const btn=$("clientLinkBtn"), old=btn.textContent; btn.textContent="Getting link\u2026"; btn.disabled=true;
