@@ -467,6 +467,7 @@
   .pill.partial{color:var(--partial-ink);background:var(--partial-bg);border-color:var(--partial-line)}
   .pill.declined{color:var(--declined-ink);background:var(--declined-bg);border-color:var(--declined-line)}
   .pill.notposted,.pill.upcoming,.pill.onhold{color:var(--idle-ink);background:var(--idle-bg);border-color:var(--idle-line)}
+  .pill.notneeded{color:var(--muted);background:transparent;border-color:var(--line-strong)}
   .ctrls{display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap}
   .ctrls select{font:inherit;font-size:12.5px;padding:4px 8px;border:1px solid var(--line-strong);
     border-radius:6px;background:var(--surface);color:var(--ink)}
@@ -769,12 +770,14 @@ const STATUS = {
   implemented:{label:"Implemented", cls:"implemented"},
   declined:{label:"Declined", cls:"declined"},
   onhold:{label:"On hold", cls:"onhold"},
-  monitored:{label:"Under discussion", cls:"posted"}
+  monitored:{label:"Under discussion", cls:"posted"},
+  notneeded:{label:"No longer needed", cls:"notneeded"}     // set by hand only; the AI never chooses it
 };
-const ORDER={awaiting:0,posted:1,replied:2,partial:3,monitored:4,upcoming:5,notposted:6,onhold:7,implemented:8,declined:9};
+const ORDER={awaiting:0,posted:1,replied:2,partial:3,monitored:4,upcoming:5,notposted:6,onhold:7,implemented:8,declined:9,notneeded:10};
 /* sort rank: anything counted as "resolved" (implemented, or a partial/declined you've
    marked done) sorts after everything still open, regardless of its raw status label */
 function sortRank(it){
+  if(it.status==="notneeded") return 200;      // closed out: always last, below resolved items too
   const base = ORDER[it.status]!==undefined ? ORDER[it.status] : 50;
   return itemResolved(it) ? 100+base : base;
 }
@@ -1029,7 +1032,7 @@ function firstTs(body){
   return first;
 }
 function daysAgo(d){ return d?Math.floor((Date.now()-d.getTime())/86400000):null; }
-const BUILD_TAG="2026-10-20.1";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
+const BUILD_TAG="2026-10-20.2";  // bump on each deploy; shown next to "Updated" so a stale upload is easy to spot
 /* elapsed time since a Date, split into hours/days for display */
 function elapsed(d){
   if(!d) return null;
@@ -1548,6 +1551,7 @@ function analysisText(it){
   const nEd=it.participants||0;
   const g=it.ask?(" "+it.ask.charAt(0).toUpperCase()+it.ask.slice(1)+(/[.!?\u2026;]$/.test(it.ask)?"":".")):"";
   const owner=sideLabel(it.starter)||"the requester";
+  if(it.status==="notneeded") return (it.kind==="manual"&&it.note ? it.note+" " : "")+"This request is no longer needed.";
   if(it.kind==="manual") return it.note?it.note:"Not yet posted to the talk page.";
   switch(it.status){
     case "implemented":
@@ -1587,7 +1591,7 @@ function summaryLine(it){
 function rowHTML(it, client, dragOn, hiddenRow){
   const st=STATUS[it.status]||STATUS.notposted;
   const key=itemKey(it);
-  const done=(it.status==="implemented"||it.status==="declined"||it.resolved);
+  const done=(it.status==="implemented"||it.status==="declined"||it.status==="notneeded"||it.resolved);
   const expanded=expandedSet.has(key);
   let age="";
   const OPEN_AGE={awaiting:1,posted:1,replied:1};
@@ -1625,7 +1629,7 @@ function rowHTML(it, client, dragOn, hiddenRow){
 
 function detailHTML(it, client, hiddenRow){
   const done=(it.status==="implemented"||it.status==="declined"||it.resolved);
-  const analysis=(it.ai && it.ai.summary) ? it.ai.summary : analysisText(it);
+  const analysis=(it.status!=="notneeded" && it.ai && it.ai.summary) ? it.ai.summary : analysisText(it);
   let bits='<div class="d-analysis">'+esc(analysis)+'</div>';
   if(it.kind==="wiki"){
     const openedLbl=elapsedLong(it.first), idleLbl=elapsedLong(it.latest);
@@ -1788,7 +1792,8 @@ function render(){
 
   items=collapseGroups(items);
 
-  const oursItems=items.filter(i=>i.ours!==false);
+  const oursItems=items.filter(i=>i.ours!==false && i.status!=="notneeded");   // "no longer needed" stays in the list but out of the progress count
+  const droppedN=items.filter(i=>i.ours!==false && i.status==="notneeded").length;
   const total=oursItems.length;
   const counts={}; BUCKETS.forEach(b=>counts[b.key]=0);
   const bmap={}; BUCKETS.forEach(b=>b.statuses.forEach(s=>bmap[s]=b.key));
@@ -1798,7 +1803,7 @@ function render(){
 
   const seg=$("progSeg"), leg=$("progLegend"); seg.innerHTML=""; leg.innerHTML="";
   if(!total){
-    leg.innerHTML='<span>No requests tracked yet.</span>';
+    leg.innerHTML=droppedN?'<span>No active requests.</span>':'<span>No requests tracked yet.</span>';
   }else{
     BUCKETS.forEach(b=>{
       const c=counts[b.key]; if(!c)return;
@@ -1820,7 +1825,7 @@ function render(){
   const orderIdx=k=>{const i=order.indexOf(k);return i<0?1e9:i;};
 
   // tabs: All + one per status present (with counts)
-  const TAB_DEFS=[["awaiting","Awaiting"],["replied","In discussion"],["partial","Partial"],["implemented","Implemented"],["declined","Declined"],["notposted","Not posted"],["upcoming","Upcoming"],["onhold","On hold"],["monitored","Monitored"]];
+  const TAB_DEFS=[["awaiting","Awaiting"],["replied","In discussion"],["partial","Partial"],["implemented","Implemented"],["declined","Declined"],["notposted","Not posted"],["upcoming","Upcoming"],["onhold","On hold"],["monitored","Monitored"],["notneeded","No longer needed"]];
   const tabCounts={}; items.forEach(i=>{ tabCounts[i.status]=(tabCounts[i.status]||0)+1; });
   const present=TAB_DEFS.filter(([s])=>tabCounts[s]);
   const attnCount=items.filter(i=>attentionFlags(i).length>0).length;
